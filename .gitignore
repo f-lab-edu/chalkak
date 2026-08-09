@@ -203,5 +203,6 @@ gradle-app.setting
 ### 추가
 .idea/
 application-local.yaml
+.env
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,gradle,java,intellij
