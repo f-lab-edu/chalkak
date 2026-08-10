@@ -26,7 +26,7 @@ public record ErrorResponse(
         String value,
         String reason
     ) {
-        static List<FieldError> of(BindingResult bindingResult) {
+        private static List<FieldError> of(BindingResult bindingResult) {
             return bindingResult.getFieldErrors().stream()
                 .map(error -> new FieldError(
                     error.getField(),
