@@ -45,7 +45,7 @@ public class User {
     @Column(nullable = false)
     String password;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     String phone;
 
     @CreatedDate
