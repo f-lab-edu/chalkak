@@ -16,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -54,6 +55,7 @@ public class User {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
+    @Builder
     public User(String email, String encodedPassword, String phone) {
         validateEmail(email);
         validatePhone(phone);
