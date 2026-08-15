@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.user.controller.request.UserRequest;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.exception.UserErrorCode;
 import com.chalkak.user.fixture.UserRequestFixture;
@@ -42,8 +43,10 @@ class UserServiceTest {
     void 이미_가입된_이메일이면_예외가_발생한다() {
         userService.signUp(UserRequestFixture.create());
 
-        assertThatThrownBy(() -> userService.signUp(
-            UserRequestFixture.create(UserRequestFixture.DEFAULT_EMAIL, UserRequestFixture.DEFAULT_PASSWORD, "010-9999-9999")))
+        UserRequest duplicateEmailRequest = UserRequestFixture.create(
+            UserRequestFixture.DEFAULT_EMAIL, UserRequestFixture.DEFAULT_PASSWORD, "010-9999-9999");
+
+        assertThatThrownBy(() -> userService.signUp(duplicateEmailRequest))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.DUPLICATE_EMAIL);
     }
@@ -52,8 +55,10 @@ class UserServiceTest {
     void 이미_가입된_전화번호면_예외가_발생한다() {
         userService.signUp(UserRequestFixture.create());
 
-        assertThatThrownBy(() -> userService.signUp(
-            UserRequestFixture.create("other@chalkak.com", UserRequestFixture.DEFAULT_PASSWORD, UserRequestFixture.DEFAULT_PHONE)))
+        UserRequest duplicatePhoneRequest = UserRequestFixture.create(
+            "other@chalkak.com", UserRequestFixture.DEFAULT_PASSWORD, UserRequestFixture.DEFAULT_PHONE);
+
+        assertThatThrownBy(() -> userService.signUp(duplicatePhoneRequest))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.DUPLICATE_PHONE);
     }

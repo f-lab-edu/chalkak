@@ -59,8 +59,9 @@ class AuthServiceTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        assertThatThrownBy(() -> authService.login(
-            new AuthRequest(UserFixture.DEFAULT_EMAIL, "wrong-password"), request, response))
+        AuthRequest wrongPasswordRequest = new AuthRequest(UserFixture.DEFAULT_EMAIL, "wrong-password");
+
+        assertThatThrownBy(() -> authService.login(wrongPasswordRequest, request, response))
             .isInstanceOf(BadCredentialsException.class);
     }
 
@@ -69,8 +70,9 @@ class AuthServiceTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        assertThatThrownBy(() -> authService.login(
-            new AuthRequest("nobody@chalkak.com", "raw-password"), request, response))
+        AuthRequest unknownEmailRequest = new AuthRequest("nobody@chalkak.com", "raw-password");
+
+        assertThatThrownBy(() -> authService.login(unknownEmailRequest, request, response))
             .isInstanceOf(BadCredentialsException.class);
     }
 }
