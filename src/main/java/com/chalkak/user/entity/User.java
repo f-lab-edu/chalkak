@@ -1,5 +1,6 @@
 package com.chalkak.user.entity;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
@@ -30,7 +31,7 @@ import com.chalkak.user.exception.UserErrorCode;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @EntityListeners(AuditingEntityListener.class)
-public class User {
+public class User implements Serializable {
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("^01[0-9]-\\d{3,4}-\\d{4}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
