@@ -13,7 +13,7 @@ public record UserRequest(
     String password,
 
     @NotBlank
-    @Pattern(regexp = "^01[0-9]-\\d{3,4}-\\d{4}$")
+    @Pattern(regexp = "^01\\d-\\d{3,4}-\\d{4}$")
     String phone
 ) {
 }
