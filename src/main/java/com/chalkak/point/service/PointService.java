@@ -23,7 +23,7 @@ public class PointService {
 
     @Transactional
     public PointResponse charge(Long userId, BigDecimal amount) {
-        Point point = pointRepository.findByUserIdForUpdate(userId)
+        Point point = pointRepository.findByUserIdWithLock(userId)
             .orElseGet(() -> createPoint(userId));
         point.charge(amount);
         return PointResponse.from(point);
@@ -31,20 +31,20 @@ public class PointService {
 
     @Transactional
     public Point lock(Long userId, BigDecimal amount) {
-        Point point = getPointForUpdate(userId);
+        Point point = getPointWithLock(userId);
         point.lock(amount);
         return point;
     }
 
     @Transactional
     public Point unlock(Long userId, BigDecimal amount) {
-        Point point = getPointForUpdate(userId);
+        Point point = getPointWithLock(userId);
         point.unlock(amount);
         return point;
     }
 
-    private Point getPointForUpdate(Long userId) {
-        return pointRepository.findByUserIdForUpdate(userId)
+    private Point getPointWithLock(Long userId) {
+        return pointRepository.findByUserIdWithLock(userId)
             .orElseThrow(() -> new BusinessException(PointErrorCode.POINT_NOT_FOUND));
     }
 
