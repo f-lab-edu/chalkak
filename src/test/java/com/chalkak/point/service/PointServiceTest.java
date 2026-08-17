@@ -57,7 +57,9 @@ class PointServiceTest {
 
     @Test
     void 존재하지_않는_유저로_충전하면_예외가_발생한다() {
-        assertThatThrownBy(() -> pointService.charge(-1L, BigDecimal.valueOf(1_000)))
+        BigDecimal amount = BigDecimal.valueOf(1_000);
+
+        assertThatThrownBy(() -> pointService.charge(-1L, amount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.USER_NOT_FOUND);
     }
@@ -76,8 +78,10 @@ class PointServiceTest {
     @Test
     void Point가_없는_유저를_잠그려하면_예외가_발생한다() {
         User user = userRepository.save(UserFixture.create());
+        Long userId = user.getId();
+        BigDecimal amount = BigDecimal.valueOf(300);
 
-        assertThatThrownBy(() -> pointService.lock(user.getId(), BigDecimal.valueOf(300)))
+        assertThatThrownBy(() -> pointService.lock(userId, amount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.POINT_NOT_FOUND);
     }

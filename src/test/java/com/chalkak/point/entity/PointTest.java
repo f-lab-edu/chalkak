@@ -46,8 +46,9 @@ class PointTest {
     @Test
     void 충전_금액이_음수이면_예외가_발생한다() {
         Point point = PointFixture.create();
+        BigDecimal negativeAmount = BigDecimal.valueOf(-1_000);
 
-        assertThatThrownBy(() -> point.charge(BigDecimal.valueOf(-1_000)))
+        assertThatThrownBy(() -> point.charge(negativeAmount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_CHARGE_AMOUNT);
     }
@@ -82,7 +83,8 @@ class PointTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_LOCK_AMOUNT);
 
-        assertThatThrownBy(() -> point.lock(BigDecimal.valueOf(-1)))
+        BigDecimal negativeAmount = BigDecimal.valueOf(-1);
+        assertThatThrownBy(() -> point.lock(negativeAmount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_LOCK_AMOUNT);
 
@@ -96,8 +98,9 @@ class PointTest {
         Point point = PointFixture.create();
 
         point.charge(BigDecimal.valueOf(1_000));
+        BigDecimal excessiveAmount = BigDecimal.valueOf(1_001);
 
-        assertThatThrownBy(() -> point.lock(BigDecimal.valueOf(1_001)))
+        assertThatThrownBy(() -> point.lock(excessiveAmount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INSUFFICIENT_AVAILABLE_AMOUNT);
     }
@@ -126,7 +129,8 @@ class PointTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_UNLOCK_AMOUNT);
 
-        assertThatThrownBy(() -> point.unlock(BigDecimal.valueOf(-1)))
+        BigDecimal negativeAmount = BigDecimal.valueOf(-1);
+        assertThatThrownBy(() -> point.unlock(negativeAmount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_UNLOCK_AMOUNT);
 
@@ -141,8 +145,9 @@ class PointTest {
 
         point.charge(BigDecimal.valueOf(1_000));
         point.lock(BigDecimal.valueOf(300));
+        BigDecimal excessiveAmount = BigDecimal.valueOf(301);
 
-        assertThatThrownBy(() -> point.unlock(BigDecimal.valueOf(301)))
+        assertThatThrownBy(() -> point.unlock(excessiveAmount))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INSUFFICIENT_LOCKED_AMOUNT);
     }
