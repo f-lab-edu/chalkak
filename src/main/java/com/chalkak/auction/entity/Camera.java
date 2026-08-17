@@ -17,7 +17,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -65,8 +64,7 @@ public class Camera {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
-    @Builder
-    public Camera(User owner, CameraCategory category, String brand, String modelName,
+    private Camera(User owner, CameraCategory category, String brand, String modelName,
             CameraConditionGrade conditionGrade, String description) {
         validateOwner(owner);
         validateCategory(category);
@@ -81,6 +79,11 @@ public class Camera {
         this.modelName = modelName;
         this.conditionGrade = conditionGrade;
         this.description = description;
+    }
+
+    public static Camera register(User owner, CameraCategory category, String brand, String modelName,
+            CameraConditionGrade conditionGrade, String description) {
+        return new Camera(owner, category, brand, modelName, conditionGrade, description);
     }
 
     private static void validateOwner(User owner) {

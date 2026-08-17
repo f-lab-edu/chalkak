@@ -14,7 +14,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -44,12 +43,16 @@ public class CameraImage {
     @Column(updatable = false)
     LocalDateTime createdAt;
 
-    @Builder
-    public CameraImage(Camera camera, String imageKey) {
+    private CameraImage(Camera camera, String imageKey) {
         validateCamera(camera);
         validateImageKey(imageKey);
+
         this.camera = camera;
         this.imageKey = imageKey;
+    }
+
+    public static CameraImage attach(Camera camera, String imageKey) {
+        return new CameraImage(camera, imageKey);
     }
 
     private static void validateCamera(Camera camera) {

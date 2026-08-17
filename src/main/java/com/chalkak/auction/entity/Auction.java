@@ -17,7 +17,6 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -64,8 +63,7 @@ public class Auction {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
-    @Builder
-    public Auction(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
+    private Auction(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
         validateCamera(camera);
         validateStartPrice(startPrice);
         validateClosesAt(closesAt);
@@ -76,6 +74,10 @@ public class Auction {
         this.status = AuctionStatus.IN_PROGRESS;
         this.closesAt = closesAt;
         this.extendedClosesAt = closesAt;
+    }
+
+    public static Auction start(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
+        return new Auction(camera, startPrice, closesAt);
     }
 
     private static void validateCamera(Camera camera) {
