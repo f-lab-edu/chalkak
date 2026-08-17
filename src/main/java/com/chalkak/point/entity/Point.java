@@ -1,12 +1,8 @@
 package com.chalkak.point.entity;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
+import com.chalkak.common.exception.BusinessException;
+import com.chalkak.point.exception.PointErrorCode;
+import com.chalkak.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -17,16 +13,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-
-import com.chalkak.common.exception.BusinessException;
-import com.chalkak.point.exception.PointErrorCode;
-import com.chalkak.user.entity.User;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "points")
@@ -57,11 +52,15 @@ public class Point {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
-    @Builder
-    public Point(User user) {
+    private Point(User user) {
         this.user = user;
         this.availableAmount = BigDecimal.ZERO;
         this.lockedAmount = BigDecimal.ZERO;
+    }
+
+    public static Point open(User user) {
+        validateUser(user);
+        return new Point(user);
     }
 
     public void charge(BigDecimal amount) {
@@ -79,6 +78,12 @@ public class Point {
         validateUnlockAmount(amount);
         this.lockedAmount = this.lockedAmount.subtract(amount);
         this.availableAmount = this.availableAmount.add(amount);
+    }
+
+    private static void validateUser(User user) {
+        if (user == null) {
+            throw new BusinessException(PointErrorCode.INVALID_USER);
+        }
     }
 
     private static void validateChargeAmount(BigDecimal amount) {

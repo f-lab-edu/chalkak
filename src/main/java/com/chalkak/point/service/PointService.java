@@ -51,6 +51,6 @@ public class PointService {
     private Point createPoint(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-        return pointRepository.save(Point.builder().user(user).build());
+        return pointRepository.save(Point.open(user));
     }
 }
