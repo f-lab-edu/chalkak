@@ -70,6 +70,6 @@ class UserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
             .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("USER-003"));
+            .andExpect(jsonPath("$.code").value("USER-004"));
     }
 }
