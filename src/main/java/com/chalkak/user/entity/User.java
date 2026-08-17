@@ -1,5 +1,6 @@
 package com.chalkak.user.entity;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
@@ -16,7 +17,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -30,9 +30,9 @@ import com.chalkak.user.exception.UserErrorCode;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @EntityListeners(AuditingEntityListener.class)
-public class User {
+public class User implements Serializable {
 
-    private static final Pattern PHONE_PATTERN = Pattern.compile("^01[0-9]-\\d{3,4}-\\d{4}$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^01\\d-\\d{3,4}-\\d{4}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
 
     @Id
@@ -55,13 +55,16 @@ public class User {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
-    @Builder
-    public User(String email, String encodedPassword, String phone) {
+    private User(String email, String encodedPassword, String phone) {
         validateEmail(email);
         validatePhone(phone);
         this.email = email;
         this.password = encodedPassword;
         this.phone = phone;
+    }
+
+    public static User signUp(String email, String encodedPassword, String phone) {
+        return new User(email, encodedPassword, phone);
     }
 
     private static void validateEmail(String email) {

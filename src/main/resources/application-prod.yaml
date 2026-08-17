@@ -1,5 +1,13 @@
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        same-site: none
+        secure: true
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
 spring:
   datasource:
