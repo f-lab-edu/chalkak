@@ -17,7 +17,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -56,13 +55,16 @@ public class User implements Serializable {
     @LastModifiedDate
     LocalDateTime updatedAt;
 
-    @Builder
-    public User(String email, String encodedPassword, String phone) {
+    private User(String email, String encodedPassword, String phone) {
         validateEmail(email);
         validatePhone(phone);
         this.email = email;
         this.password = encodedPassword;
         this.phone = phone;
+    }
+
+    public static User signUp(String email, String encodedPassword, String phone) {
+        return new User(email, encodedPassword, phone);
     }
 
     private static void validateEmail(String email) {

@@ -13,10 +13,6 @@ public class UserFixture {
     }
 
     public static User create(String email, String encodedPassword, String phone) {
-        return User.builder()
-            .email(email)
-            .encodedPassword(encodedPassword)
-            .phone(phone)
-            .build();
+        return User.signUp(email, encodedPassword, phone);
     }
 }
