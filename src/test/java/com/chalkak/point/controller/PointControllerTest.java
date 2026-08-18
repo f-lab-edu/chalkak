@@ -2,6 +2,7 @@ package com.chalkak.point.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,6 +54,45 @@ class PointControllerTest {
     @AfterEach
     void clearContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void 포인트_조회시_Point_row가_없으면_0원을_응답한다() throws Exception {
+        User user = userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(UserFixture.DEFAULT_RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+
+        mockMvc.perform(get("/api/v1/points")
+                .session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.userId").value(user.getId()))
+            .andExpect(jsonPath("$.availableAmount").value(0))
+            .andExpect(jsonPath("$.lockedAmount").value(0));
+    }
+
+    @Test
+    void 포인트_조회시_충전한_금액이_응답된다() throws Exception {
+        User user = userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(UserFixture.DEFAULT_RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        PointRequest request = new PointRequest(BigDecimal.valueOf(1_000));
+        mockMvc.perform(post("/api/v1/points/charge")
+            .session(session)
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)));
+
+        mockMvc.perform(get("/api/v1/points")
+                .session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.userId").value(user.getId()))
+            .andExpect(jsonPath("$.availableAmount").value(1_000));
+    }
+
+    @Test
+    void 포인트_조회시_로그인하지_않으면_403을_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/points"))
+            .andExpect(status().isForbidden());
     }
 
     @Test
