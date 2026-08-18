@@ -6,6 +6,7 @@ public class UserFixture {
 
     public static final String DEFAULT_EMAIL = "test@chalkak.com";
     public static final String DEFAULT_ENCODED_PASSWORD = "encoded-password";
+    public static final String DEFAULT_RAW_PASSWORD = "raw-password";
     public static final String DEFAULT_PHONE = "010-1234-5678";
 
     public static User create() {

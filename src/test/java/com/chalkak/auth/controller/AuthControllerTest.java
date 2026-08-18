@@ -50,11 +50,11 @@ class AuthControllerTest {
     @Test
     void 로그인에_성공하면_200과_세션을_응답한다() throws Exception {
         userRepository.save(UserFixture.create(
-            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode("raw-password"), UserFixture.DEFAULT_PHONE));
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(UserFixture.DEFAULT_RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
 
         MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new AuthRequest(UserFixture.DEFAULT_EMAIL, "raw-password"))))
+                .content(objectMapper.writeValueAsString(new AuthRequest(UserFixture.DEFAULT_EMAIL, UserFixture.DEFAULT_RAW_PASSWORD))))
             .andExpect(status().isOk())
             .andReturn();
 
@@ -64,7 +64,7 @@ class AuthControllerTest {
     @Test
     void 비밀번호가_틀리면_401을_응답한다() throws Exception {
         userRepository.save(UserFixture.create(
-            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode("raw-password"), UserFixture.DEFAULT_PHONE));
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(UserFixture.DEFAULT_RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
 
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -76,11 +76,11 @@ class AuthControllerTest {
     @Test
     void 로그아웃하면_세션이_무효화된다() throws Exception {
         userRepository.save(UserFixture.create(
-            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode("raw-password"), UserFixture.DEFAULT_PHONE));
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(UserFixture.DEFAULT_RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
 
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new AuthRequest(UserFixture.DEFAULT_EMAIL, "raw-password"))))
+                .content(objectMapper.writeValueAsString(new AuthRequest(UserFixture.DEFAULT_EMAIL, UserFixture.DEFAULT_RAW_PASSWORD))))
             .andExpect(status().isOk())
             .andReturn();
 

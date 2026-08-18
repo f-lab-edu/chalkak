@@ -12,8 +12,9 @@ import lombok.RequiredArgsConstructor;
 public enum UserErrorCode implements ErrorCode {
     INVALID_PHONE_FORMAT(HttpStatus.BAD_REQUEST, "USER-001", "전화번호 형식이 올바르지 않습니다."),
     INVALID_EMAIL_FORMAT(HttpStatus.BAD_REQUEST, "USER-002", "이메일 형식이 올바르지 않습니다."),
-    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER-003", "이미 사용 중인 이메일입니다."),
-    DUPLICATE_PHONE(HttpStatus.CONFLICT, "USER-004", "이미 사용 중인 전화번호입니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER-003", "존재하지 않는 사용자입니다."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER-004", "이미 사용 중인 이메일입니다."),
+    DUPLICATE_PHONE(HttpStatus.CONFLICT, "USER-005", "이미 사용 중인 전화번호입니다.");
 
     private final HttpStatus status;
     private final String code;
