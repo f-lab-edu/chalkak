@@ -1,6 +1,9 @@
 cors:
   allowed-origins: http://localhost:3000
 
+file:
+  upload-dir: build/test-uploads
+
 spring:
   datasource:
     url: jdbc:h2:mem:chalkak;MODE=PostgreSQL
