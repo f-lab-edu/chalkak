@@ -24,23 +24,6 @@ class CameraTest {
     }
 
     @Test
-    void owner가_null이면_예외가_발생한다() {
-        assertThatThrownBy(() -> CameraFixture.create(null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraErrorCode.INVALID_OWNER);
-    }
-
-    @Test
-    void category가_null이면_예외가_발생한다() {
-        User owner = UserFixture.create();
-
-        assertThatThrownBy(() -> CameraFixture.create(owner, null, CameraFixture.DEFAULT_BRAND,
-            CameraFixture.DEFAULT_MODEL_NAME, CameraFixture.DEFAULT_CONDITION_GRADE, CameraFixture.DEFAULT_DESCRIPTION))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraErrorCode.INVALID_CATEGORY);
-    }
-
-    @Test
     void brand가_공백이면_예외가_발생한다() {
         User owner = UserFixture.create();
 
@@ -78,16 +61,6 @@ class CameraTest {
             "", CameraFixture.DEFAULT_CONDITION_GRADE, CameraFixture.DEFAULT_DESCRIPTION))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CameraErrorCode.INVALID_MODEL_NAME);
-    }
-
-    @Test
-    void conditionGrade가_null이면_예외가_발생한다() {
-        User owner = UserFixture.create();
-
-        assertThatThrownBy(() -> CameraFixture.create(owner, CameraFixture.DEFAULT_CATEGORY, CameraFixture.DEFAULT_BRAND,
-            CameraFixture.DEFAULT_MODEL_NAME, null, CameraFixture.DEFAULT_DESCRIPTION))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraErrorCode.INVALID_CONDITION_GRADE);
     }
 
     @Test

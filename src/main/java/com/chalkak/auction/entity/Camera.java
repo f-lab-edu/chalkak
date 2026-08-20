@@ -54,11 +54,8 @@ public class Camera extends BaseEntity {
 
     private Camera(User owner, CameraCategory category, String brand, String modelName,
             CameraConditionGrade conditionGrade, String description) {
-        validateOwner(owner);
-        validateCategory(category);
         validateBrand(brand);
         validateModelName(modelName);
-        validateConditionGrade(conditionGrade);
         validateDescription(description);
 
         this.owner = owner;
@@ -74,38 +71,20 @@ public class Camera extends BaseEntity {
         return new Camera(owner, category, brand, modelName, conditionGrade, description);
     }
 
-    private static void validateOwner(User owner) {
-        if (owner == null) {
-            throw new BusinessException(CameraErrorCode.INVALID_OWNER);
-        }
-    }
-
-    private static void validateCategory(CameraCategory category) {
-        if (category == null) {
-            throw new BusinessException(CameraErrorCode.INVALID_CATEGORY);
-        }
-    }
-
     private static void validateBrand(String brand) {
-        if (brand == null || brand.isBlank()) {
+        if (brand.isBlank()) {
             throw new BusinessException(CameraErrorCode.INVALID_BRAND);
         }
     }
 
     private static void validateModelName(String modelName) {
-        if (modelName == null || modelName.isBlank()) {
+        if (modelName.isBlank()) {
             throw new BusinessException(CameraErrorCode.INVALID_MODEL_NAME);
         }
     }
 
-    private static void validateConditionGrade(CameraConditionGrade conditionGrade) {
-        if (conditionGrade == null) {
-            throw new BusinessException(CameraErrorCode.INVALID_CONDITION_GRADE);
-        }
-    }
-
     private static void validateDescription(String description) {
-        if (description == null || description.isBlank()) {
+        if (description.isBlank()) {
             throw new BusinessException(CameraErrorCode.INVALID_DESCRIPTION);
         }
     }

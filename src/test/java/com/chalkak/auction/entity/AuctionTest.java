@@ -23,15 +23,6 @@ class AuctionTest {
     }
 
     @Test
-    void camera가_null이면_예외가_발생한다() {
-        LocalDateTime closesAt = LocalDateTime.now().plusDays(3);
-
-        assertThatThrownBy(() -> AuctionFixture.create(null, AuctionFixture.DEFAULT_START_PRICE, closesAt))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.INVALID_CAMERA);
-    }
-
-    @Test
     void startPrice가_0이하이면_예외가_발생한다() {
         Camera camera = CameraFixture.create();
         LocalDateTime closesAt = LocalDateTime.now().plusDays(3);
@@ -39,25 +30,6 @@ class AuctionTest {
         assertThatThrownBy(() -> AuctionFixture.create(camera, BigDecimal.ZERO, closesAt))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.INVALID_START_PRICE);
-    }
-
-    @Test
-    void startPrice가_null이면_예외가_발생한다() {
-        Camera camera = CameraFixture.create();
-        LocalDateTime closesAt = LocalDateTime.now().plusDays(3);
-
-        assertThatThrownBy(() -> AuctionFixture.create(camera, null, closesAt))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.INVALID_START_PRICE);
-    }
-
-    @Test
-    void closesAt이_null이면_예외가_발생한다() {
-        Camera camera = CameraFixture.create();
-
-        assertThatThrownBy(() -> AuctionFixture.create(camera, AuctionFixture.DEFAULT_START_PRICE, null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.INVALID_CLOSES_AT);
     }
 
     @Test

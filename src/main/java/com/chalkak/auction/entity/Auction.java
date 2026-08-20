@@ -53,7 +53,6 @@ public class Auction extends BaseEntity {
     LocalDateTime extendedClosesAt;
 
     private Auction(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
-        validateCamera(camera);
         validateStartPrice(startPrice);
         validateClosesAt(closesAt);
 
@@ -69,20 +68,14 @@ public class Auction extends BaseEntity {
         return new Auction(camera, startPrice, closesAt);
     }
 
-    private static void validateCamera(Camera camera) {
-        if (camera == null) {
-            throw new BusinessException(AuctionErrorCode.INVALID_CAMERA);
-        }
-    }
-
     private static void validateStartPrice(BigDecimal startPrice) {
-        if (startPrice == null || startPrice.compareTo(BigDecimal.ZERO) <= 0) {
+        if (startPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(AuctionErrorCode.INVALID_START_PRICE);
         }
     }
 
     private static void validateClosesAt(LocalDateTime closesAt) {
-        if (closesAt == null || !closesAt.isAfter(LocalDateTime.now())) {
+        if (!closesAt.isAfter(LocalDateTime.now())) {
             throw new BusinessException(AuctionErrorCode.INVALID_CLOSES_AT);
         }
     }

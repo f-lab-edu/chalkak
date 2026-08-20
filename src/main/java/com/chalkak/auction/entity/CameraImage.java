@@ -44,7 +44,6 @@ public class CameraImage {
     LocalDateTime createdAt;
 
     private CameraImage(Camera camera, String imageKey) {
-        validateCamera(camera);
         validateImageKey(imageKey);
 
         this.camera = camera;
@@ -55,14 +54,8 @@ public class CameraImage {
         return new CameraImage(camera, imageKey);
     }
 
-    private static void validateCamera(Camera camera) {
-        if (camera == null) {
-            throw new BusinessException(CameraImageErrorCode.INVALID_CAMERA);
-        }
-    }
-
     private static void validateImageKey(String imageKey) {
-        if (imageKey == null || imageKey.isBlank()) {
+        if (imageKey.isBlank()) {
             throw new BusinessException(CameraImageErrorCode.INVALID_IMAGE_KEY);
         }
     }

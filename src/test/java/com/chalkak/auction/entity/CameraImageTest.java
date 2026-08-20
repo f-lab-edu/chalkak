@@ -19,13 +19,6 @@ class CameraImageTest {
     }
 
     @Test
-    void camera가_null이면_예외가_발생한다() {
-        assertThatThrownBy(() -> CameraImageFixture.create(null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraImageErrorCode.INVALID_CAMERA);
-    }
-
-    @Test
     void imageKey가_공백이면_예외가_발생한다() {
         Camera camera = CameraFixture.create();
 
@@ -39,15 +32,6 @@ class CameraImageTest {
         Camera camera = CameraFixture.create();
 
         assertThatThrownBy(() -> CameraImageFixture.create(camera, ""))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraImageErrorCode.INVALID_IMAGE_KEY);
-    }
-
-    @Test
-    void imageKey가_null이면_예외가_발생한다() {
-        Camera camera = CameraFixture.create();
-
-        assertThatThrownBy(() -> CameraImageFixture.create(camera, null))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CameraImageErrorCode.INVALID_IMAGE_KEY);
     }
