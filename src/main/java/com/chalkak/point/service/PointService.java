@@ -21,6 +21,12 @@ public class PointService {
     private final PointRepository pointRepository;
     private final UserRepository userRepository;
 
+    public PointResponse findByUserId(Long userId) {
+        return pointRepository.findByUserId(userId)
+            .map(PointResponse::from)
+            .orElseGet(() -> PointResponse.empty(userId));
+    }
+
     @Transactional
     public PointResponse charge(Long userId, BigDecimal amount) {
         Point point = pointRepository.findByUserIdWithLock(userId)

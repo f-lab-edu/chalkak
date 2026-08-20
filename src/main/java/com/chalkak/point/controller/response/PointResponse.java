@@ -12,4 +12,8 @@ public record PointResponse(
     public static PointResponse from(Point point) {
         return new PointResponse(point.getUser().getId(), point.getAvailableAmount(), point.getLockedAmount());
     }
+
+    public static PointResponse empty(Long userId) {
+        return new PointResponse(userId, BigDecimal.ZERO, BigDecimal.ZERO);
+    }
 }

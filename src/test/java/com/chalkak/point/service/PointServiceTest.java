@@ -34,6 +34,30 @@ class PointServiceTest {
     private PointRepository pointRepository;
 
     @Test
+    void Point_row가_없으면_0원으로_조회된다() {
+        User user = userRepository.save(UserFixture.create());
+
+        PointResponse response = pointService.findByUserId(user.getId());
+
+        assertThat(response.userId()).isEqualTo(user.getId());
+        assertThat(response.availableAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.lockedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(pointRepository.findByUserId(user.getId())).isEmpty();
+    }
+
+    @Test
+    void Point_row가_있으면_해당_금액으로_조회된다() {
+        User user = userRepository.save(UserFixture.create());
+        pointService.charge(user.getId(), BigDecimal.valueOf(1_000));
+        pointService.lock(user.getId(), BigDecimal.valueOf(300));
+
+        PointResponse response = pointService.findByUserId(user.getId());
+
+        assertThat(response.availableAmount()).isEqualByComparingTo(BigDecimal.valueOf(700));
+        assertThat(response.lockedAmount()).isEqualByComparingTo(BigDecimal.valueOf(300));
+    }
+
+    @Test
     void 최초_충전이면_Point_row가_생성되고_가용_금액이_증가한다() {
         User user = userRepository.save(UserFixture.create());
 
