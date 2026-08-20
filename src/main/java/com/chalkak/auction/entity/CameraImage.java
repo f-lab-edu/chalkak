@@ -1,7 +1,7 @@
 package com.chalkak.auction.entity;
 
-import com.chalkak.auction.exception.CameraImageErrorCode;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -56,7 +56,7 @@ public class CameraImage {
 
     private static void validateImageKey(String imageKey) {
         if (imageKey.isBlank()) {
-            throw new BusinessException(CameraImageErrorCode.INVALID_IMAGE_KEY);
+            throw new BusinessException(CommonErrorCode.REQUIRED, CommonErrorCode.REQUIRED.formatted("이미지 경로"));
         }
     }
 }

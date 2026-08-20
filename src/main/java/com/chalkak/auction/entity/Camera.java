@@ -1,8 +1,8 @@
 package com.chalkak.auction.entity;
 
-import com.chalkak.auction.exception.CameraErrorCode;
 import com.chalkak.common.entity.BaseEntity;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -73,19 +73,19 @@ public class Camera extends BaseEntity {
 
     private static void validateBrand(String brand) {
         if (brand.isBlank()) {
-            throw new BusinessException(CameraErrorCode.INVALID_BRAND);
+            throw new BusinessException(CommonErrorCode.REQUIRED, CommonErrorCode.REQUIRED.formatted("브랜드"));
         }
     }
 
     private static void validateModelName(String modelName) {
         if (modelName.isBlank()) {
-            throw new BusinessException(CameraErrorCode.INVALID_MODEL_NAME);
+            throw new BusinessException(CommonErrorCode.REQUIRED, CommonErrorCode.REQUIRED.formatted("모델명"));
         }
     }
 
     private static void validateDescription(String description) {
         if (description.isBlank()) {
-            throw new BusinessException(CameraErrorCode.INVALID_DESCRIPTION);
+            throw new BusinessException(CommonErrorCode.REQUIRED, CommonErrorCode.REQUIRED.formatted("설명"));
         }
     }
 }

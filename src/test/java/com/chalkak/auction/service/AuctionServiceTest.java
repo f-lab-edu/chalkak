@@ -11,6 +11,7 @@ import com.chalkak.auction.fixture.AuctionRequestFixture;
 import com.chalkak.auction.fixture.MultipartFileFixture;
 import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
@@ -69,6 +70,7 @@ class AuctionServiceTest {
 
         assertThatThrownBy(() -> auctionService.register(-1L, request, images))
             .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.OWNER_NOT_FOUND);
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
+            .hasMessage("판매자 정보가 존재하지 않습니다.");
     }
 }

@@ -10,6 +10,7 @@ import com.chalkak.auction.repository.AuctionRepository;
 import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
@@ -53,7 +54,7 @@ public class AuctionService {
 
     private User getOwner(Long ownerId) {
         return userRepository.findById(ownerId)
-            .orElseThrow(() -> new BusinessException(AuctionErrorCode.OWNER_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND, CommonErrorCode.NOT_FOUND.formatted("판매자")));
     }
 
     private void validateImageCount(List<MultipartFile> images) {

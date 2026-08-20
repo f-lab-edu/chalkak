@@ -3,10 +3,10 @@ package com.chalkak.auction.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.chalkak.auction.exception.CameraImageErrorCode;
 import com.chalkak.auction.fixture.CameraFixture;
 import com.chalkak.auction.fixture.CameraImageFixture;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import org.junit.jupiter.api.Test;
 
 class CameraImageTest {
@@ -24,7 +24,8 @@ class CameraImageTest {
 
         assertThatThrownBy(() -> CameraImageFixture.create(camera, " "))
             .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraImageErrorCode.INVALID_IMAGE_KEY);
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.REQUIRED)
+            .hasMessage("이미지 경로 값은 필수입니다.");
     }
 
     @Test
@@ -33,6 +34,7 @@ class CameraImageTest {
 
         assertThatThrownBy(() -> CameraImageFixture.create(camera, ""))
             .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", CameraImageErrorCode.INVALID_IMAGE_KEY);
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.REQUIRED)
+            .hasMessage("이미지 경로 값은 필수입니다.");
     }
 }
