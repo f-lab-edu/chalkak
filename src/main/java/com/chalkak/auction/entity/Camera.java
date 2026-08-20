@@ -42,11 +42,11 @@ public class Camera extends BaseEntity {
     @Column(nullable = false)
     String brand;
 
-    @Column(name = "model_name", nullable = false)
+    @Column(nullable = false)
     String modelName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "condition_grade", nullable = false)
+    @Column(nullable = false)
     CameraConditionGrade conditionGrade;
 
     @Column(nullable = false)

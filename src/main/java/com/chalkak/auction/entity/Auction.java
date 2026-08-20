@@ -36,20 +36,20 @@ public class Auction extends BaseEntity {
     @JoinColumn(name = "camera_id", nullable = false)
     Camera camera;
 
-    @Column(name = "start_price", nullable = false)
+    @Column(nullable = false)
     BigDecimal startPrice;
 
-    @Column(name = "current_price", nullable = false)
+    @Column(nullable = false)
     BigDecimal currentPrice;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     AuctionStatus status;
 
-    @Column(name = "closes_at", nullable = false)
+    @Column(nullable = false)
     LocalDateTime closesAt;
 
-    @Column(name = "extended_closes_at", nullable = false)
+    @Column(nullable = false)
     LocalDateTime extendedClosesAt;
 
     private Auction(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {

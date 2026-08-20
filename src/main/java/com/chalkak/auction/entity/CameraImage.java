@@ -36,7 +36,7 @@ public class CameraImage {
     @JoinColumn(name = "camera_id", nullable = false)
     Camera camera;
 
-    @Column(name = "image_key", nullable = false)
+    @Column(nullable = false)
     String imageKey;
 
     @CreatedDate
