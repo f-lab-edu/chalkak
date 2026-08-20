@@ -1,10 +1,10 @@
 package com.chalkak.auction.entity;
 
 import com.chalkak.auction.exception.AuctionErrorCode;
+import com.chalkak.common.entity.BaseEntity;
 import com.chalkak.common.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -20,17 +20,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "auctions")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@EntityListeners(AuditingEntityListener.class)
-public class Auction {
+public class Auction extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,13 +51,6 @@ public class Auction {
 
     @Column(name = "extended_closes_at", nullable = false)
     LocalDateTime extendedClosesAt;
-
-    @CreatedDate
-    @Column(updatable = false)
-    LocalDateTime createdAt;
-
-    @LastModifiedDate
-    LocalDateTime updatedAt;
 
     private Auction(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
         validateCamera(camera);
