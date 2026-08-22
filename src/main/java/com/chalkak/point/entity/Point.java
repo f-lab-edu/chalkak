@@ -68,13 +68,13 @@ public class Point extends BaseEntity {
     }
 
     private static void validateChargeAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_CHARGE_AMOUNT);
         }
     }
 
     private void validateLockAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_LOCK_AMOUNT);
         }
         if (amount.compareTo(this.availableAmount) > 0) {
@@ -83,7 +83,7 @@ public class Point extends BaseEntity {
     }
 
     private void validateUnlockAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_UNLOCK_AMOUNT);
         }
         if (amount.compareTo(this.lockedAmount) > 0) {

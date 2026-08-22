@@ -42,6 +42,7 @@ public class User extends BaseEntity implements Serializable {
     private User(String email, String encodedPassword, String phone) {
         validateEmail(email);
         validatePhone(phone);
+
         this.email = email;
         this.password = encodedPassword;
         this.phone = phone;
@@ -52,13 +53,13 @@ public class User extends BaseEntity implements Serializable {
     }
 
     private static void validateEmail(String email) {
-        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
             throw new BusinessException(UserErrorCode.INVALID_EMAIL_FORMAT);
         }
     }
 
     private static void validatePhone(String phone) {
-        if (phone == null || !PHONE_PATTERN.matcher(phone).matches()) {
+        if (!PHONE_PATTERN.matcher(phone).matches()) {
             throw new BusinessException(UserErrorCode.INVALID_PHONE_FORMAT);
         }
     }
