@@ -1,11 +1,11 @@
 package com.chalkak.point.entity;
 
+import com.chalkak.common.entity.BaseEntity;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.point.exception.PointErrorCode;
 import com.chalkak.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,22 +14,17 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "points")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@EntityListeners(AuditingEntityListener.class)
-public class Point {
+public class Point extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,13 +40,6 @@ public class Point {
     @Column(nullable = false)
     BigDecimal lockedAmount;
 
-    @CreatedDate
-    @Column(updatable = false)
-    LocalDateTime createdAt;
-
-    @LastModifiedDate
-    LocalDateTime updatedAt;
-
     private Point(User user) {
         this.user = user;
         this.availableAmount = BigDecimal.ZERO;
@@ -59,7 +47,6 @@ public class Point {
     }
 
     public static Point open(User user) {
-        validateUser(user);
         return new Point(user);
     }
 
@@ -80,20 +67,14 @@ public class Point {
         this.availableAmount = this.availableAmount.add(amount);
     }
 
-    private static void validateUser(User user) {
-        if (user == null) {
-            throw new BusinessException(PointErrorCode.INVALID_USER);
-        }
-    }
-
     private static void validateChargeAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_CHARGE_AMOUNT);
         }
     }
 
     private void validateLockAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_LOCK_AMOUNT);
         }
         if (amount.compareTo(this.availableAmount) > 0) {
@@ -102,7 +83,7 @@ public class Point {
     }
 
     private void validateUnlockAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_UNLOCK_AMOUNT);
         }
         if (amount.compareTo(this.lockedAmount) > 0) {
