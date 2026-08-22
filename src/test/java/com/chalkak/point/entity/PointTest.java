@@ -20,13 +20,6 @@ class PointTest {
     }
 
     @Test
-    void user가_null이면_예외가_발생한다() {
-        assertThatThrownBy(() -> PointFixture.create(null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_USER);
-    }
-
-    @Test
     void 충전하면_가용_금액이_증가한다() {
         Point point = PointFixture.create();
         point.charge(BigDecimal.valueOf(1_000));

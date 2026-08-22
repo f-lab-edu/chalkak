@@ -47,7 +47,6 @@ public class Point extends BaseEntity {
     }
 
     public static Point open(User user) {
-        validateUser(user);
         return new Point(user);
     }
 
@@ -66,12 +65,6 @@ public class Point extends BaseEntity {
         validateUnlockAmount(amount);
         this.lockedAmount = this.lockedAmount.subtract(amount);
         this.availableAmount = this.availableAmount.add(amount);
-    }
-
-    private static void validateUser(User user) {
-        if (user == null) {
-            throw new BusinessException(PointErrorCode.INVALID_USER);
-        }
     }
 
     private static void validateChargeAmount(BigDecimal amount) {
