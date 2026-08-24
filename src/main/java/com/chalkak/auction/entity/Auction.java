@@ -3,6 +3,7 @@ package com.chalkak.auction.entity;
 import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.common.entity.BaseEntity;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.util.TimeUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -75,7 +76,7 @@ public class Auction extends BaseEntity {
     }
 
     private static void validateClosesAt(LocalDateTime closesAt) {
-        if (!closesAt.isAfter(LocalDateTime.now())) {
+        if (!closesAt.isAfter(TimeUtils.now())) {
             throw new BusinessException(AuctionErrorCode.INVALID_CLOSES_AT);
         }
     }
