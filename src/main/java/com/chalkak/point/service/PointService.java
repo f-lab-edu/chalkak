@@ -1,12 +1,11 @@
 package com.chalkak.point.service;
 
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.point.controller.response.PointResponse;
 import com.chalkak.point.entity.Point;
-import com.chalkak.point.exception.PointErrorCode;
 import com.chalkak.point.repository.PointRepository;
 import com.chalkak.user.entity.User;
-import com.chalkak.user.exception.UserErrorCode;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
@@ -51,12 +50,14 @@ public class PointService {
 
     private Point getPointWithLock(Long userId) {
         return pointRepository.findByUserIdWithLock(userId)
-            .orElseThrow(() -> new BusinessException(PointErrorCode.POINT_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND,
+                CommonErrorCode.NOT_FOUND.formatted("포인트")));
     }
 
     private Point createPoint(Long userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND,
+                CommonErrorCode.NOT_FOUND.formatted("회원")));
         return pointRepository.save(Point.open(user));
     }
 }

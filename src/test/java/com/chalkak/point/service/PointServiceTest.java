@@ -4,12 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.point.controller.response.PointResponse;
 import com.chalkak.point.entity.Point;
-import com.chalkak.point.exception.PointErrorCode;
 import com.chalkak.point.repository.PointRepository;
 import com.chalkak.user.entity.User;
-import com.chalkak.user.exception.UserErrorCode;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -85,7 +84,8 @@ class PointServiceTest {
 
         assertThatThrownBy(() -> pointService.charge(-1L, amount))
             .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.USER_NOT_FOUND);
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
+            .hasMessage("회원 정보가 존재하지 않습니다.");
     }
 
     @Test
@@ -107,7 +107,8 @@ class PointServiceTest {
 
         assertThatThrownBy(() -> pointService.lock(userId, amount))
             .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.POINT_NOT_FOUND);
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
+            .hasMessage("포인트 정보가 존재하지 않습니다.");
     }
 
     @Test

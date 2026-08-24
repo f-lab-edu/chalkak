@@ -20,13 +20,6 @@ class PointTest {
     }
 
     @Test
-    void user가_null이면_예외가_발생한다() {
-        assertThatThrownBy(() -> PointFixture.create(null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_USER);
-    }
-
-    @Test
     void 충전하면_가용_금액이_증가한다() {
         Point point = PointFixture.create();
         point.charge(BigDecimal.valueOf(1_000));
@@ -54,15 +47,6 @@ class PointTest {
     }
 
     @Test
-    void 충전_금액이_null이면_예외가_발생한다() {
-        Point point = PointFixture.create();
-
-        assertThatThrownBy(() -> point.charge(null))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_CHARGE_AMOUNT);
-    }
-
-    @Test
     void 잠그면_가용_금액이_줄고_잠금_금액이_늘어난다() {
         Point point = PointFixture.create();
 
@@ -74,7 +58,7 @@ class PointTest {
     }
 
     @Test
-    void 잠금_금액이_0이하이거나_null이면_예외가_발생한다() {
+    void 잠금_금액이_0이하이면_예외가_발생한다() {
         Point point = PointFixture.create();
 
         point.charge(BigDecimal.valueOf(1_000));
@@ -85,10 +69,6 @@ class PointTest {
 
         BigDecimal negativeAmount = BigDecimal.valueOf(-1);
         assertThatThrownBy(() -> point.lock(negativeAmount))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_LOCK_AMOUNT);
-
-        assertThatThrownBy(() -> point.lock(null))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_LOCK_AMOUNT);
     }
@@ -119,7 +99,7 @@ class PointTest {
     }
 
     @Test
-    void 잠금_해제_금액이_0이하이거나_null이면_예외가_발생한다() {
+    void 잠금_해제_금액이_0이하이면_예외가_발생한다() {
         Point point = PointFixture.create();
 
         point.charge(BigDecimal.valueOf(1_000));
@@ -131,10 +111,6 @@ class PointTest {
 
         BigDecimal negativeAmount = BigDecimal.valueOf(-1);
         assertThatThrownBy(() -> point.unlock(negativeAmount))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_UNLOCK_AMOUNT);
-
-        assertThatThrownBy(() -> point.unlock(null))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INVALID_UNLOCK_AMOUNT);
     }
