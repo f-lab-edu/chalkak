@@ -1,0 +1,53 @@
+package com.chalkak.auction.controller.response;
+
+import com.chalkak.auction.entity.Auction;
+import com.chalkak.auction.entity.AuctionStatus;
+import com.chalkak.auction.entity.Camera;
+import com.chalkak.auction.entity.CameraCategory;
+import com.chalkak.auction.entity.CameraConditionGrade;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record AuctionDetailResponse(
+    Long id,
+    Long cameraId,
+    CameraCategory category,
+    String brand,
+    String modelName,
+    CameraConditionGrade conditionGrade,
+    String description,
+    // TODO: FileStorage에 다운로드 URL 조회 기능이 추가되면 key 대신 다운로드 가능한 경로를 내려준다.
+    List<String> imageKeys,
+    Long sellerId,
+    String sellerNickname,
+    BigDecimal startPrice,
+    BigDecimal currentPrice,
+    AuctionStatus status,
+    LocalDateTime closesAt
+) {
+    // TODO: User에 실제 nickname 필드가 추가되면 임시 닉네임 생성 로직을 제거한다.
+    private static final String TEMP_NICKNAME_PREFIX = "판매자";
+
+    public static AuctionDetailResponse from(Auction auction, List<String> imageKeys) {
+        Camera camera = auction.getCamera();
+        Long sellerId = camera.getOwner().getId();
+
+        return new AuctionDetailResponse(
+            auction.getId(),
+            camera.getId(),
+            camera.getCategory(),
+            camera.getBrand(),
+            camera.getModelName(),
+            camera.getConditionGrade(),
+            camera.getDescription(),
+            imageKeys,
+            sellerId,
+            TEMP_NICKNAME_PREFIX + sellerId,
+            auction.getStartPrice(),
+            auction.getCurrentPrice(),
+            auction.getStatus(),
+            auction.getClosesAt()
+        );
+    }
+}

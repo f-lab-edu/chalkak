@@ -1,6 +1,7 @@
 package com.chalkak.auction.controller;
 
 import com.chalkak.auction.controller.request.AuctionRequest;
+import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
 import com.chalkak.auction.service.AuctionService;
 import com.chalkak.auth.principal.AuthUserPrincipal;
@@ -11,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -32,5 +35,11 @@ public class AuctionController {
     ) {
         AuctionResponse response = auctionService.register(principal.getUserId(), request, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{auctionId}")
+    public ResponseEntity<AuctionDetailResponse> getDetail(@PathVariable Long auctionId) {
+        AuctionDetailResponse response = auctionService.getDetail(auctionId);
+        return ResponseEntity.ok(response);
     }
 }
