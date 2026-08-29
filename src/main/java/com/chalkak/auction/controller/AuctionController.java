@@ -3,6 +3,7 @@ package com.chalkak.auction.controller;
 import com.chalkak.auction.controller.request.AuctionRequest;
 import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
+import com.chalkak.auction.controller.response.AuctionStatusResponse;
 import com.chalkak.auction.service.AuctionService;
 import com.chalkak.auth.principal.AuthUserPrincipal;
 import jakarta.validation.Valid;
@@ -40,6 +41,12 @@ public class AuctionController {
     @GetMapping("/{auctionId}")
     public ResponseEntity<AuctionDetailResponse> getDetail(@PathVariable Long auctionId) {
         AuctionDetailResponse response = auctionService.getDetail(auctionId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{auctionId}/status")
+    public ResponseEntity<AuctionStatusResponse> getStatus(@PathVariable Long auctionId) {
+        AuctionStatusResponse response = auctionService.getStatus(auctionId);
         return ResponseEntity.ok(response);
     }
 }

@@ -3,6 +3,7 @@ package com.chalkak.auction.service;
 import com.chalkak.auction.controller.request.AuctionRequest;
 import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
+import com.chalkak.auction.controller.response.AuctionStatusResponse;
 import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.Camera;
 import com.chalkak.auction.entity.CameraImage;
@@ -54,17 +55,25 @@ public class AuctionService {
     }
 
     public AuctionDetailResponse getDetail(Long auctionId) {
-        Auction auction = auctionRepository.findById(auctionId)
-            .orElseThrow(() -> new BusinessException(
-                CommonErrorCode.NOT_FOUND,
-                CommonErrorCode.NOT_FOUND.formatted("경매")
-                ));
+        Auction auction = getAuction(auctionId);
 
         List<String> imageKeys = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
             .map(CameraImage::getImageKey)
             .toList();
 
         return AuctionDetailResponse.from(auction, imageKeys);
+    }
+
+    public AuctionStatusResponse getStatus(Long auctionId) {
+        return AuctionStatusResponse.from(getAuction(auctionId));
+    }
+
+    private Auction getAuction(Long auctionId) {
+        return auctionRepository.findById(auctionId)
+            .orElseThrow(() -> new BusinessException(
+                CommonErrorCode.NOT_FOUND,
+                CommonErrorCode.NOT_FOUND.formatted("경매")
+                ));
     }
 
     private User getOwner(Long ownerId) {
