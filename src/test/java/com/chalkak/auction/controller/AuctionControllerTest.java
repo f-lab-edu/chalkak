@@ -7,12 +7,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chalkak.auction.fixture.AuctionRequestFixture;
 import com.chalkak.auction.fixture.MultipartFileFixture;
 import com.chalkak.auth.controller.request.AuthRequest;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,9 +110,9 @@ class AuctionControllerTest {
 
         mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
-            .andExpect(jsonPath("$.modelName").value(AuctionRequestFixture.DEFAULT_MODEL_NAME))
-            .andExpect(jsonPath("$.imageKeys.length()").value(3));
+            .andExpect(jsonPath("$.camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
+            .andExpect(jsonPath("$.camera.modelName").value(AuctionRequestFixture.DEFAULT_MODEL_NAME))
+            .andExpect(jsonPath("$.camera.imageKeys.length()").value(3));
     }
 
     @Test
