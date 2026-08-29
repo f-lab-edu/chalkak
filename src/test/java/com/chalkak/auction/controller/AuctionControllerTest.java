@@ -1,6 +1,7 @@
 package com.chalkak.auction.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -98,6 +99,39 @@ class AuctionControllerTest {
                 .file(MultipartFileFixture.image("image3.jpg"))
                 .with(csrf()))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 로그인하지_않아도_200과_경매_상세_정보를_응답한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        Long auctionId = registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
+            .andExpect(jsonPath("$.modelName").value(AuctionRequestFixture.DEFAULT_MODEL_NAME))
+            .andExpect(jsonPath("$.imageKeys.length()").value(3));
+    }
+
+    @Test
+    void 존재하지_않는_경매를_조회하면_404를_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", -1L))
+            .andExpect(status().isNotFound());
+    }
+
+    private Long registerAuction(MockHttpSession session) throws Exception {
+        MvcResult result = mockMvc.perform(multipart("/api/v1/auctions")
+                .file(requestPart())
+                .file(MultipartFileFixture.image("image1.jpg"))
+                .file(MultipartFileFixture.image("image2.jpg"))
+                .file(MultipartFileFixture.image("image3.jpg"))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isCreated())
+            .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
     }
 
     private MockMultipartFile requestPart() throws Exception {

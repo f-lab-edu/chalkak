@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.chalkak.auction.controller.request.AuctionRequest;
+import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
 import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.exception.AuctionErrorCode;
@@ -72,5 +73,33 @@ class AuctionServiceTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("판매자 정보가 존재하지 않습니다.");
+    }
+
+    @Test
+    void 정상_조회하면_경매_상세_정보를_응답한다() {
+        User owner = userRepository.save(UserFixture.create());
+        AuctionRequest request = AuctionRequestFixture.create();
+        List<MultipartFile> images = MultipartFileFixture.images(3);
+        AuctionResponse registered = auctionService.register(owner.getId(), request, images);
+
+        AuctionDetailResponse response = auctionService.getDetail(registered.id());
+
+        assertThat(response.camera().category()).isEqualTo(request.category());
+        assertThat(response.camera().brand()).isEqualTo(request.brand());
+        assertThat(response.camera().modelName()).isEqualTo(request.modelName());
+        assertThat(response.camera().conditionGrade()).isEqualTo(request.conditionGrade());
+        assertThat(response.camera().description()).isEqualTo(request.description());
+        assertThat(response.camera().imageKeys()).hasSize(3);
+        assertThat(response.seller().id()).isEqualTo(owner.getId());
+        assertThat(response.seller().nickname()).isEqualTo("판매자" + owner.getId());
+        assertThat(response.status()).isEqualTo(AuctionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void 존재하지_않는_경매를_조회하면_예외가_발생한다() {
+        assertThatThrownBy(() -> auctionService.getDetail(-1L))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
+            .hasMessage("경매 정보가 존재하지 않습니다.");
     }
 }
