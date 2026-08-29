@@ -11,16 +11,8 @@ import java.util.List;
 
 public record AuctionDetailResponse(
     Long id,
-    Long cameraId,
-    CameraCategory category,
-    String brand,
-    String modelName,
-    CameraConditionGrade conditionGrade,
-    String description,
-    // TODO: FileStorage에 다운로드 URL 조회 기능이 추가되면 key 대신 다운로드 가능한 경로를 내려준다.
-    List<String> imageKeys,
-    Long sellerId,
-    String sellerNickname,
+    CameraInfo camera,
+    SellerInfo seller,
     BigDecimal startPrice,
     BigDecimal currentPrice,
     AuctionStatus status,
@@ -35,19 +27,44 @@ public record AuctionDetailResponse(
 
         return new AuctionDetailResponse(
             auction.getId(),
-            camera.getId(),
-            camera.getCategory(),
-            camera.getBrand(),
-            camera.getModelName(),
-            camera.getConditionGrade(),
-            camera.getDescription(),
-            imageKeys,
-            sellerId,
-            TEMP_NICKNAME_PREFIX + sellerId,
+            CameraInfo.from(camera, imageKeys),
+            SellerInfo.from(sellerId, TEMP_NICKNAME_PREFIX + sellerId),
             auction.getStartPrice(),
             auction.getCurrentPrice(),
             auction.getStatus(),
             auction.getClosesAt()
         );
+    }
+
+    public record CameraInfo(
+        Long id,
+        CameraCategory category,
+        String brand,
+        String modelName,
+        CameraConditionGrade conditionGrade,
+        String description,
+        // TODO: FileStorage에 다운로드 URL 조회 기능이 추가되면 key 대신 다운로드 가능한 경로를 내려준다.
+        List<String> imageKeys
+    ) {
+        private static CameraInfo from(Camera camera, List<String> imageKeys) {
+            return new CameraInfo(
+                camera.getId(),
+                camera.getCategory(),
+                camera.getBrand(),
+                camera.getModelName(),
+                camera.getConditionGrade(),
+                camera.getDescription(),
+                imageKeys
+            );
+        }
+    }
+
+    public record SellerInfo(
+        Long id,
+        String nickname
+    ) {
+        private static SellerInfo from(Long id, String nickname) {
+            return new SellerInfo(id, nickname);
+        }
     }
 }
