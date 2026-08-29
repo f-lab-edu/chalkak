@@ -117,8 +117,10 @@ class BidServiceTest {
     void 존재하지_않는_경매면_예외가_발생한다() {
         User bidder = userRepository.save(UserFixture.create());
         BigDecimal bidAmount = BigDecimal.valueOf(10_000);
+        Long bidderId = bidder.getId();
+        BidRequest request = new BidRequest(bidAmount);
 
-        assertThatThrownBy(() -> bidService.submit(-1L, bidder.getId(), new BidRequest(bidAmount)))
+        assertThatThrownBy(() -> bidService.submit(-1L, bidderId, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("경매 정보가 존재하지 않습니다.");
@@ -132,12 +134,15 @@ class BidServiceTest {
         Auction auction = createAuction(TimeUtils.now().plusSeconds(1));
 
         User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
-        pointService.charge(bidder.getId(), BigDecimal.valueOf(50_000));
+        Long bidderId = bidder.getId();
+        pointService.charge(bidderId, BigDecimal.valueOf(50_000));
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
+        Long auctionId = auction.getId();
+        BidRequest request = new BidRequest(bidAmount);
 
         Thread.sleep(2_000);
 
-        assertThatThrownBy(() -> bidService.submit(auction.getId(), bidder.getId(), new BidRequest(bidAmount)))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.AUCTION_ALREADY_CLOSED);
     }
@@ -147,8 +152,11 @@ class BidServiceTest {
         Auction auction = createAuction();
         User owner = auction.getCamera().getOwner();
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
+        Long auctionId = auction.getId();
+        Long ownerId = owner.getId();
+        BidRequest request = new BidRequest(bidAmount);
 
-        assertThatThrownBy(() -> bidService.submit(auction.getId(), owner.getId(), new BidRequest(bidAmount)))
+        assertThatThrownBy(() -> bidService.submit(auctionId, ownerId, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.SELF_BID_NOT_ALLOWED);
     }
@@ -157,8 +165,10 @@ class BidServiceTest {
     void 존재하지_않는_회원이면_예외가_발생한다() {
         Auction auction = createAuction();
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
+        Long auctionId = auction.getId();
+        BidRequest request = new BidRequest(bidAmount);
 
-        assertThatThrownBy(() -> bidService.submit(auction.getId(), -1L, new BidRequest(bidAmount)))
+        assertThatThrownBy(() -> bidService.submit(auctionId, -1L, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("회원 정보가 존재하지 않습니다.");
@@ -169,10 +179,12 @@ class BidServiceTest {
         Auction auction = createAuction();
 
         User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
-        pointService.charge(bidder.getId(), BigDecimal.valueOf(50_000));
+        Long bidderId = bidder.getId();
+        pointService.charge(bidderId, BigDecimal.valueOf(50_000));
+        Long auctionId = auction.getId();
+        BidRequest request = new BidRequest(BigDecimal.valueOf(1_000));
 
-        assertThatThrownBy(() -> bidService.submit(
-            auction.getId(), bidder.getId(), new BidRequest(BigDecimal.valueOf(1_000))))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.BID_AMOUNT_TOO_LOW);
     }
@@ -182,10 +194,13 @@ class BidServiceTest {
         Auction auction = createAuction();
 
         User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
+        Long bidderId = bidder.getId();
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
-        pointService.charge(bidder.getId(), BigDecimal.valueOf(1_999));
+        pointService.charge(bidderId, BigDecimal.valueOf(1_999));
+        Long auctionId = auction.getId();
+        BidRequest request = new BidRequest(bidAmount);
 
-        assertThatThrownBy(() -> bidService.submit(auction.getId(), bidder.getId(), new BidRequest(bidAmount)))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INSUFFICIENT_AVAILABLE_AMOUNT);
     }
