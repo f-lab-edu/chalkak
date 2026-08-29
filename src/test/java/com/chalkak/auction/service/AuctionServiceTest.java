@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.chalkak.auction.controller.request.AuctionRequest;
 import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
+import com.chalkak.auction.controller.response.AuctionStatusResponse;
 import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.auction.fixture.AuctionRequestFixture;
@@ -98,6 +99,28 @@ class AuctionServiceTest {
     @Test
     void 존재하지_않는_경매를_조회하면_예외가_발생한다() {
         assertThatThrownBy(() -> auctionService.getDetail(-1L))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
+            .hasMessage("경매 정보가 존재하지 않습니다.");
+    }
+
+    @Test
+    void 정상_조회하면_경매_상태_정보를_응답한다() {
+        User owner = userRepository.save(UserFixture.create());
+        AuctionRequest request = AuctionRequestFixture.create();
+        List<MultipartFile> images = MultipartFileFixture.images(3);
+        AuctionResponse registered = auctionService.register(owner.getId(), request, images);
+
+        AuctionStatusResponse response = auctionService.getStatus(registered.id());
+
+        assertThat(response.currentPrice()).isEqualByComparingTo(request.startPrice());
+        assertThat(response.status()).isEqualTo(AuctionStatus.IN_PROGRESS);
+        assertThat(response.closesAt()).isEqualTo(request.closesAt());
+    }
+
+    @Test
+    void 존재하지_않는_경매의_상태를_조회하면_예외가_발생한다() {
+        assertThatThrownBy(() -> auctionService.getStatus(-1L))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("경매 정보가 존재하지 않습니다.");

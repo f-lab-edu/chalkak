@@ -121,6 +121,25 @@ class AuctionControllerTest {
             .andExpect(status().isNotFound());
     }
 
+    @Test
+    void 로그인하지_않아도_200과_경매_상태_정보를_응답한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        Long auctionId = registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}/status", auctionId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.currentPrice").value(AuctionRequestFixture.DEFAULT_START_PRICE.intValue()))
+            .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+    }
+
+    @Test
+    void 존재하지_않는_경매의_상태를_조회하면_404를_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}/status", -1L))
+            .andExpect(status().isNotFound());
+    }
+
     private Long registerAuction(MockHttpSession session) throws Exception {
         MvcResult result = mockMvc.perform(multipart("/api/v1/auctions")
                 .file(requestPart())
