@@ -116,6 +116,21 @@ class BidControllerTest {
     }
 
     @Test
+    void 입찰_금액에_소수가_포함되면_400을_응답한다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000.5))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void 존재하지_않는_경매면_404를_응답한다() throws Exception {
         registerUser(BIDDER_EMAIL);
         MockHttpSession session = login(BIDDER_EMAIL);
