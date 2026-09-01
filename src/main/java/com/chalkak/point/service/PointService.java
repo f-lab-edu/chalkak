@@ -8,6 +8,7 @@ import com.chalkak.point.repository.PointRepository;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,13 +56,13 @@ public class PointService {
         Long firstUserId = Math.min(newBidderId, previousBidderId);
         Long secondUserId = Math.max(newBidderId, previousBidderId);
 
-        if (newBidderId.equals(firstUserId)) {
-            lock(firstUserId, newBidAmount);
-            unlock(secondUserId, previousBidAmount);
-        } else {
-            unlock(firstUserId, previousBidAmount);
-            lock(secondUserId, newBidAmount);
-        }
+        Point firstPoint = getPointWithLock(firstUserId);
+        Point secondPoint = getPointWithLock(secondUserId);
+
+        Map<Long, Point> pointsByUserId = Map.of(firstUserId, firstPoint, secondUserId, secondPoint);
+
+        pointsByUserId.get(newBidderId).lock(newBidAmount);
+        pointsByUserId.get(previousBidderId).unlock(previousBidAmount);
     }
 
     private Point getPointWithLock(Long userId) {
