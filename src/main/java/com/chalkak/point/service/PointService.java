@@ -35,17 +35,17 @@ public class PointService {
     }
 
     @Transactional
-    public Point lock(Long userId, BigDecimal amount) {
+    public PointResponse lock(Long userId, BigDecimal amount) {
         Point point = getPointWithLock(userId);
         point.lock(amount);
-        return point;
+        return PointResponse.from(point);
     }
 
     @Transactional
-    public Point unlock(Long userId, BigDecimal amount) {
+    public PointResponse unlock(Long userId, BigDecimal amount) {
         Point point = getPointWithLock(userId);
         point.unlock(amount);
-        return point;
+        return PointResponse.from(point);
     }
 
     @Transactional
