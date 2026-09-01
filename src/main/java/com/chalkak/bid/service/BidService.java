@@ -12,6 +12,7 @@ import com.chalkak.point.service.PointService;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,16 +44,23 @@ public class BidService {
             CommonErrorCode.NOT_FOUND.formatted("회원")
         ));
 
-        // 현재가 검증은 Auction.updateCurrentPrice(), 포인트 부족 검증은 Point.lock() 내부에서 처리됨
+        Optional<Bid> beforeTopBid = bidRepository.findTopByAuctionIdOrderByBidAmountDesc(auctionId);
+
         auction.updateCurrentPrice(bidAmount);
-        pointService.lock(bidderId, bidAmount);
+
+        boolean isSameBidder = beforeTopBid
+            .map(bid -> bid.getBidder().getId().equals(bidderId))
+            .orElse(false);
+
+        if (isSameBidder) {
+            BigDecimal additionalAmount = bidAmount.subtract(beforeTopBid.get().getBidAmount());
+            pointService.lock(bidderId, additionalAmount);
+        } else {
+            pointService.lock(bidderId, bidAmount);
+            beforeTopBid.ifPresent(bid -> pointService.unlock(bid.getBidder().getId(), bid.getBidAmount()));
+        }
 
         auction.updateExtendCloseAt();
-
-        // 이전 최고 입찰자 포인트 잠금 해제 (첫 입찰이면 없을 수 있음)
-        bidRepository.findTopByAuctionIdOrderByBidAmountDesc(auctionId)
-            .ifPresent(beforeBestBidLog -> pointService.unlock(
-                beforeBestBidLog.getBidder().getId(), beforeBestBidLog.getBidAmount()));
 
         Bid bidLog = Bid.submit(auction, bidder, bidAmount);
         Bid bid = bidRepository.save(bidLog);

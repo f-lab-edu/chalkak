@@ -114,6 +114,29 @@ class BidServiceTest {
     }
 
     @Test
+    void 같은_입찰자가_최고_입찰_상태에서_재입찰하면_차액만_포인트가_잠긴다() {
+        Auction auction = createAuction();
+
+        User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
+        pointService.charge(bidder.getId(), BigDecimal.valueOf(2_500));
+
+        BigDecimal firstBidAmount = BigDecimal.valueOf(2_000);
+        bidService.submit(auction.getId(), bidder.getId(), new BidRequest(firstBidAmount));
+
+        BigDecimal secondBidAmount = BigDecimal.valueOf(2_400);
+        BidResponse response = bidService.submit(auction.getId(), bidder.getId(), new BidRequest(secondBidAmount));
+
+        assertThat(response.bidAmount()).isEqualByComparingTo(secondBidAmount);
+        assertThat(auction.getCurrentPrice()).isEqualByComparingTo(secondBidAmount);
+
+        PointResponse bidderPoint = pointService.findByUserId(bidder.getId());
+        assertThat(bidderPoint.availableAmount()).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(bidderPoint.lockedAmount()).isEqualByComparingTo(secondBidAmount);
+
+        assertThat(bidRepository.count()).isEqualTo(2);
+    }
+
+    @Test
     void 존재하지_않는_경매면_예외가_발생한다() {
         User bidder = userRepository.save(UserFixture.create());
         BigDecimal bidAmount = BigDecimal.valueOf(10_000);
