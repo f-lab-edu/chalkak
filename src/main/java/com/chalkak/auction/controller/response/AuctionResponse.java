@@ -20,7 +20,7 @@ public record AuctionResponse(
             auction.getStartPrice(),
             auction.getCurrentPrice(),
             auction.getStatus(),
-            auction.getClosesAt()
+            auction.getExtendedClosesAt()
         );
     }
 }
