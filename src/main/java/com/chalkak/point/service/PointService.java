@@ -48,6 +48,22 @@ public class PointService {
         return point;
     }
 
+    @Transactional
+    public void settlePoint(Long newBidderId, Long previousBidderId, BigDecimal newBidAmount, BigDecimal previousBidAmount) {
+        // 두 사용자의 포인트 행을 잠그는 순서가 호출마다(누가 새 입찰자인지에 따라) 달라지면
+        // 교차 입찰 상황에서 서로 다른 순서로 잠그다 데드락이 발생할 수 있어, userId 오름차순으로 순서를 고정
+        Long firstUserId = Math.min(newBidderId, previousBidderId);
+        Long secondUserId = Math.max(newBidderId, previousBidderId);
+
+        if (newBidderId.equals(firstUserId)) {
+            lock(firstUserId, newBidAmount);
+            unlock(secondUserId, previousBidAmount);
+        } else {
+            unlock(firstUserId, previousBidAmount);
+            lock(secondUserId, newBidAmount);
+        }
+    }
+
     private Point getPointWithLock(Long userId) {
         return pointRepository.findByUserIdWithLock(userId)
             .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND,

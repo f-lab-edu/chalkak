@@ -56,8 +56,14 @@ public class BidService {
             BigDecimal additionalAmount = bidAmount.subtract(beforeTopBid.get().getBidAmount());
             pointService.lock(bidderId, additionalAmount);
         } else {
-            pointService.lock(bidderId, bidAmount);
-            beforeTopBid.ifPresent(bid -> pointService.unlock(bid.getBidder().getId(), bid.getBidAmount()));
+            if (beforeTopBid.isPresent()) {
+                Bid previousBid = beforeTopBid.get();
+                Long previousBidderId = previousBid.getBidder().getId();
+                pointService.settlePoint(bidderId, previousBidderId, bidAmount, previousBid.getBidAmount());
+            } else {
+                pointService.lock(bidderId, bidAmount);
+            }
+
         }
 
         auction.updateExtendCloseAt();

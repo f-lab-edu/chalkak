@@ -123,7 +123,62 @@ class BidConcurrencyTest {
         Auction finalAuction = auctionRepository.findById(auction.getId()).orElseThrow();
         assertThat(finalAuction.getCurrentPrice()).isEqualByComparingTo(WINNING_AMOUNT);
 
-        // TODO: 비관적 락 적용 후 - 입찰 시도한 모든 유저의 포인트가 정확히 복구/잠금됐는지(승자만 잠금, 나머지는 전부 해제) 검증 추가
+    }
+
+    @RepeatedTest(20)
+    void 서로_다른_경매의_최고입찰자가_교차로_재입찰하면_데드락_없이_처리된다() throws InterruptedException {
+        int seed = ThreadLocalRandom.current().nextInt(1_000, 9_999);
+
+        User ownerA = userRepository.save(UserFixture.create("ownerA-" + seed + "@chalkak.com", "encoded-password", phone(seed, 0)));
+        User ownerB = userRepository.save(UserFixture.create("ownerB-" + seed + "@chalkak.com", "encoded-password", phone(seed, 1)));
+        Auction auctionA = auctionRepository.save(
+            AuctionFixture.create(cameraRepository.save(CameraFixture.create(ownerA)), START_PRICE, TimeUtils.now().plusDays(3)));
+        Auction auctionB = auctionRepository.save(
+            AuctionFixture.create(cameraRepository.save(CameraFixture.create(ownerB)), START_PRICE, TimeUtils.now().plusDays(3)));
+
+        User u1 = userRepository.save(UserFixture.create("u1-" + seed + "@chalkak.com", "encoded-password", phone(seed, 2)));
+        User u2 = userRepository.save(UserFixture.create("u2-" + seed + "@chalkak.com", "encoded-password", phone(seed, 3)));
+        pointService.charge(u1.getId(), CHARGE_AMOUNT);
+        pointService.charge(u2.getId(), CHARGE_AMOUNT);
+
+        bidService.submit(auctionA.getId(), u1.getId(), new BidRequest(BigDecimal.valueOf(1_500))); // U1이 A의 최고입찰자
+        bidService.submit(auctionB.getId(), u2.getId(), new BidRequest(BigDecimal.valueOf(1_500))); // U2가 B의 최고입찰자
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch readyLatch = new CountDownLatch(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(2);
+        List<Exception> exceptions = Collections.synchronizedList(new ArrayList<>());
+
+        executor.submit(() -> {
+            readyLatch.countDown();
+            try {
+                startLatch.await();
+                bidService.submit(auctionA.getId(), u2.getId(), new BidRequest(BigDecimal.valueOf(2_000))); // U2가 A에 재입찰
+            } catch (Exception e) {
+                exceptions.add(e);
+            } finally {
+                doneLatch.countDown();
+            }
+        });
+        executor.submit(() -> {
+            readyLatch.countDown();
+            try {
+                startLatch.await();
+                bidService.submit(auctionB.getId(), u1.getId(), new BidRequest(BigDecimal.valueOf(2_000))); // U1이 B에 재입찰
+            } catch (Exception e) {
+                exceptions.add(e);
+            } finally {
+                doneLatch.countDown();
+            }
+        });
+
+        readyLatch.await();
+        startLatch.countDown();
+        doneLatch.await(10, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertThat(exceptions).isEmpty();
     }
 
     private String phone(int seed, int index) {
