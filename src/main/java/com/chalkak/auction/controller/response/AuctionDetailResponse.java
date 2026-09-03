@@ -32,7 +32,7 @@ public record AuctionDetailResponse(
             auction.getStartPrice(),
             auction.getCurrentPrice(),
             auction.getStatus(),
-            auction.getClosesAt()
+            auction.getExtendedClosesAt()
         );
     }
 

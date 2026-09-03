@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.point.controller.response.PointResponse;
-import com.chalkak.point.entity.Point;
 import com.chalkak.point.repository.PointRepository;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
@@ -93,10 +92,10 @@ class PointServiceTest {
         User user = userRepository.save(UserFixture.create());
         pointService.charge(user.getId(), BigDecimal.valueOf(1_000));
 
-        Point point = pointService.lock(user.getId(), BigDecimal.valueOf(300));
+        PointResponse point = pointService.lock(user.getId(), BigDecimal.valueOf(300));
 
-        assertThat(point.getAvailableAmount()).isEqualByComparingTo(BigDecimal.valueOf(700));
-        assertThat(point.getLockedAmount()).isEqualByComparingTo(BigDecimal.valueOf(300));
+        assertThat(point.availableAmount()).isEqualByComparingTo(BigDecimal.valueOf(700));
+        assertThat(point.lockedAmount()).isEqualByComparingTo(BigDecimal.valueOf(300));
     }
 
     @Test
@@ -117,9 +116,9 @@ class PointServiceTest {
         pointService.charge(user.getId(), BigDecimal.valueOf(1_000));
         pointService.lock(user.getId(), BigDecimal.valueOf(300));
 
-        Point point = pointService.unlock(user.getId(), BigDecimal.valueOf(300));
+        PointResponse point = pointService.unlock(user.getId(), BigDecimal.valueOf(300));
 
-        assertThat(point.getAvailableAmount()).isEqualByComparingTo(BigDecimal.valueOf(1_000));
-        assertThat(point.getLockedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(point.availableAmount()).isEqualByComparingTo(BigDecimal.valueOf(1_000));
+        assertThat(point.lockedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 }

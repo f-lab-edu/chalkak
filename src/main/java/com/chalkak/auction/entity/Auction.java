@@ -29,6 +29,10 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Auction extends BaseEntity {
 
+    private static final int EXTEND_THRESHOLD_MINUTES = 5;
+    private static final int EXTEND_MINUTES = 5;
+    private static final int MAX_EXTEND_MINUTES = 25;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
@@ -67,6 +71,35 @@ public class Auction extends BaseEntity {
 
     public static Auction start(Camera camera, BigDecimal startPrice, LocalDateTime closesAt) {
         return new Auction(camera, startPrice, closesAt);
+    }
+
+    public void validateNotOwner(Long bidderId) {
+        if (camera.getOwner().getId().equals(bidderId)) {
+            throw new BusinessException(AuctionErrorCode.SELF_BID_NOT_ALLOWED);
+        }
+    }
+
+    public void validateAcceptingBids() {
+        if (!status.isAcceptingBids() || !extendedClosesAt.isAfter(TimeUtils.now())) {
+            throw new BusinessException(AuctionErrorCode.AUCTION_ALREADY_CLOSED);
+        }
+    }
+
+    public void updateCurrentPrice(BigDecimal bidAmount) {
+        if (bidAmount.compareTo(this.currentPrice) <= 0) {
+            throw new BusinessException(AuctionErrorCode.BID_AMOUNT_TOO_LOW);
+        }
+        this.currentPrice = bidAmount;
+    }
+
+    public void updateExtendCloseAt() {
+        LocalDateTime now = TimeUtils.now();
+        if (now.isBefore(this.extendedClosesAt.minusMinutes(EXTEND_THRESHOLD_MINUTES))) {
+            return;
+        }
+        LocalDateTime extended = this.extendedClosesAt.plusMinutes(EXTEND_MINUTES);
+        LocalDateTime maxClosesAt = this.closesAt.plusMinutes(MAX_EXTEND_MINUTES);
+        this.extendedClosesAt = extended.isAfter(maxClosesAt) ? maxClosesAt : extended;
     }
 
     private static void validateStartPrice(BigDecimal startPrice) {
