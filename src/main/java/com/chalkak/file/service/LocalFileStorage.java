@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +31,15 @@ public class LocalFileStorage implements FileStorage {
         } catch (IOException e) {
             throw new BusinessException(FileErrorCode.UPLOAD_FAILED);
         }
+    }
+
+    @Override
+    public Resource download(String key) {
+        Resource resource = new FileSystemResource(uploadDir.resolve(key));
+        if (!resource.exists() || !resource.isReadable()) {
+            throw new BusinessException(FileErrorCode.FILE_NOT_FOUND);
+        }
+        return resource;
     }
 
     private String extractExtension(String originalFilename) {

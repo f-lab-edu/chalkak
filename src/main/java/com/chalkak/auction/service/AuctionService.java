@@ -57,11 +57,11 @@ public class AuctionService {
     public AuctionDetailResponse getDetail(Long auctionId) {
         Auction auction = getAuction(auctionId);
 
-        List<String> imageKeys = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
-            .map(CameraImage::getImageKey)
+        List<String> imageUrls = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
+            .map(image -> "/api/v1/images/" + image.getId())
             .toList();
 
-        return AuctionDetailResponse.from(auction, imageKeys);
+        return AuctionDetailResponse.from(auction, imageUrls);
     }
 
     public AuctionStatusResponse getStatus(Long auctionId) {

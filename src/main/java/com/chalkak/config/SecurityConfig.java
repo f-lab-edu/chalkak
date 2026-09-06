@@ -49,6 +49,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PERMIT_ALL_PATHS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auctions/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/images/**").permitAll()
                 .anyRequest().authenticated()
             )
             .logout(logout -> logout
