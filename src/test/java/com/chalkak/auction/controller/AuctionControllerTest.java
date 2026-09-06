@@ -140,6 +140,37 @@ class AuctionControllerTest {
             .andExpect(status().isNotFound());
     }
 
+    @Test
+    void 로그인하지_않아도_200과_경매_목록을_응답한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
+            .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void size와_page_파라미터로_페이지네이션이_적용된다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions").param("page", "0").param("size", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(1))
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
     private Long registerAuction(MockHttpSession session) throws Exception {
         MvcResult result = mockMvc.perform(multipart("/api/v1/auctions")
                 .file(requestPart())
