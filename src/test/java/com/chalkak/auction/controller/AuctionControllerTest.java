@@ -112,7 +112,7 @@ class AuctionControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
             .andExpect(jsonPath("$.camera.modelName").value(AuctionRequestFixture.DEFAULT_MODEL_NAME))
-            .andExpect(jsonPath("$.camera.imageKeys.length()").value(3));
+            .andExpect(jsonPath("$.camera.imageUrls.length()").value(3));
     }
 
     @Test
