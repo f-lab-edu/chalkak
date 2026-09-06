@@ -9,6 +9,9 @@ import org.springframework.util.StringUtils;
 
 public class QueryUtils {
 
+  private QueryUtils() {
+  }
+
   public static BooleanExpression containsIgnoreCase(StringPath path, String value) {
     if (!StringUtils.hasText(value)) {
       return Expressions.TRUE;
