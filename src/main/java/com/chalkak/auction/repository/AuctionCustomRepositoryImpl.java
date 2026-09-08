@@ -46,7 +46,7 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
                 .or(QueryUtils.containsIgnoreCase(auction.camera.modelName, keyword)
                 .or(QueryUtils.containsIgnoreCase(auction.camera.description, keyword)))
         )
-        .orderBy(getOrderSpec(sort))
+        .orderBy(getOrderSpec(sort), auction.id.desc())
         .offset(pageable.getOffset())
         .limit(pageable.getPageSize())
         .fetch();

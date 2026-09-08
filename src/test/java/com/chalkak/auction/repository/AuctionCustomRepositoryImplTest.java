@@ -191,6 +191,32 @@ class AuctionCustomRepositoryImplTest {
     }
 
     @Test
+    void 정렬_값이_같아도_id_역순으로_안정적으로_정렬되어_페이지네이션이_어긋나지_않는다() {
+        User owner = em.persistAndFlush(UserFixture.create());
+        LocalDateTime sameClosesAt = LocalDateTime.now().plusDays(1);
+        Camera camera1 = em.persistAndFlush(CameraFixture.create(owner));
+        Camera camera2 = em.persistAndFlush(CameraFixture.create(owner));
+        Camera camera3 = em.persistAndFlush(CameraFixture.create(owner));
+        Camera camera4 = em.persistAndFlush(CameraFixture.create(owner));
+        Auction auction1 = em.persistAndFlush(AuctionFixture.create(camera1, BigDecimal.valueOf(10_000), sameClosesAt));
+        Auction auction2 = em.persistAndFlush(AuctionFixture.create(camera2, BigDecimal.valueOf(10_000), sameClosesAt));
+        Auction auction3 = em.persistAndFlush(AuctionFixture.create(camera3, BigDecimal.valueOf(10_000), sameClosesAt));
+        Auction auction4 = em.persistAndFlush(AuctionFixture.create(camera4, BigDecimal.valueOf(10_000), sameClosesAt));
+
+        Page<Auction> firstPage = auctionRepository.getAuctionsBySearchCondition(
+            null, null, null, AuctionSortType.CLOSING_SOON, PageRequest.of(0, 2));
+        Page<Auction> secondPage = auctionRepository.getAuctionsBySearchCondition(
+            null, null, null, AuctionSortType.CLOSING_SOON, PageRequest.of(1, 2));
+
+        assertThat(firstPage.getContent())
+            .extracting(Auction::getId)
+            .containsExactly(auction4.getId(), auction3.getId());
+        assertThat(secondPage.getContent())
+            .extracting(Auction::getId)
+            .containsExactly(auction2.getId(), auction1.getId());
+    }
+
+    @Test
     void 정렬조건이_BID_COUNT면_입찰이_많은_경매가_먼저_조회된다() {
         User owner = em.persistAndFlush(UserFixture.create());
         User bidder = em.persistAndFlush(UserFixture.create("bidder@chalkak.com", "encoded-password", "010-9999-9999"));
