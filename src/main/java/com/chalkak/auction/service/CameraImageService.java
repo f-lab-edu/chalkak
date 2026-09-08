@@ -4,6 +4,7 @@ import com.chalkak.auction.entity.CameraImage;
 import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
+import com.chalkak.common.util.FileUtils;
 import com.chalkak.file.service.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -34,7 +35,7 @@ public class CameraImageService {
     }
 
     private MediaType resolveContentType(String imageKey) {
-        String extension = extractExtension(imageKey);
+        String extension = FileUtils.extractExtension(imageKey);
         return switch (extension) {
             case ".jpg", ".jpeg" -> MediaType.IMAGE_JPEG;
             case ".png" -> MediaType.IMAGE_PNG;
@@ -42,10 +43,5 @@ public class CameraImageService {
             case ".webp" -> MediaType.valueOf("image/webp");
             default -> MediaType.APPLICATION_OCTET_STREAM;
         };
-    }
-
-    private String extractExtension(String imageKey) {
-        int dotIndex = imageKey.lastIndexOf('.');
-        return dotIndex == -1 ? "" : imageKey.substring(dotIndex).toLowerCase();
     }
 }

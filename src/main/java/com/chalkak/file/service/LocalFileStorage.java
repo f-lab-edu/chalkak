@@ -1,6 +1,7 @@
 package com.chalkak.file.service;
 
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.util.FileUtils;
 import com.chalkak.file.exception.FileErrorCode;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,7 +26,7 @@ public class LocalFileStorage implements FileStorage {
     public String upload(MultipartFile file) {
         try {
             Files.createDirectories(uploadDir);
-            String key = UUID.randomUUID() + extractExtension(file.getOriginalFilename());
+            String key = UUID.randomUUID() + FileUtils.extractExtension(file.getOriginalFilename());
             file.transferTo(uploadDir.resolve(key));
             return key;
         } catch (IOException e) {
@@ -40,13 +41,5 @@ public class LocalFileStorage implements FileStorage {
             throw new BusinessException(FileErrorCode.FILE_NOT_FOUND);
         }
         return resource;
-    }
-
-    private String extractExtension(String originalFilename) {
-        if (originalFilename == null) {
-            return "";
-        }
-        int dotIndex = originalFilename.lastIndexOf('.');
-        return dotIndex == -1 ? "" : originalFilename.substring(dotIndex);
     }
 }
