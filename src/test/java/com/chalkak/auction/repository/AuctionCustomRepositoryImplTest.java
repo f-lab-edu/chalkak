@@ -156,6 +156,25 @@ class AuctionCustomRepositoryImplTest {
     }
 
     @Test
+    void 마감_시각이_지난_경매는_상태가_IN_PROGRESS여도_조회되지_않는다() {
+        User owner = em.persistAndFlush(UserFixture.create());
+        Camera camera1 = em.persistAndFlush(CameraFixture.create(owner));
+        Camera camera2 = em.persistAndFlush(CameraFixture.create(owner));
+        Auction active = em.persistAndFlush(
+            AuctionFixture.create(camera1, BigDecimal.valueOf(10_000), LocalDateTime.now().plusDays(5)));
+        Auction expired = AuctionFixture.create(camera2, BigDecimal.valueOf(10_000), LocalDateTime.now().plusDays(5));
+        ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+        em.persistAndFlush(expired);
+
+        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+            .extracting(Auction::getId)
+            .containsExactly(active.getId());
+    }
+
+    @Test
     void 정렬조건이_LATEST면_최근_등록된_경매가_먼저_조회된다() throws InterruptedException {
         User owner = em.persistAndFlush(UserFixture.create());
         Camera camera1 = em.persistAndFlush(CameraFixture.create(owner));

@@ -8,6 +8,7 @@ import com.chalkak.auction.entity.AuctionSortType;
 import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.entity.CameraCategory;
 import com.chalkak.auction.entity.CameraConditionGrade;
+import com.chalkak.common.util.TimeUtils;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -40,6 +41,7 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
         .from(auction)
         .where(
             QueryUtils.equalsIfNotNull(auction.status, AuctionStatus.IN_PROGRESS),
+            auction.extendedClosesAt.gt(TimeUtils.now()),
             QueryUtils.equalsIfNotNull(auction.camera.category, category),
             QueryUtils.equalsIfNotNull(auction.camera.conditionGrade, grade),
             QueryUtils.containsIgnoreCase(auction.camera.brand, keyword)
@@ -56,6 +58,7 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
         .from(auction)
         .where(
             QueryUtils.equalsIfNotNull(auction.status, AuctionStatus.IN_PROGRESS),
+            auction.extendedClosesAt.gt(TimeUtils.now()),
             QueryUtils.equalsIfNotNull(auction.camera.category, category),
             QueryUtils.equalsIfNotNull(auction.camera.conditionGrade, grade),
             QueryUtils.containsIgnoreCase(auction.camera.brand, keyword)
