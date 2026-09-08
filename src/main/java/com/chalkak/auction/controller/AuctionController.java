@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -51,7 +52,7 @@ public class AuctionController {
         @RequestParam(required = false) CameraConditionGrade grade,
         @RequestParam(required = false) String keyword,
         @RequestParam(required = false) AuctionSortType sort,
-        Pageable pageable
+        @PageableDefault(size = 20) Pageable pageable
     ) {
         PageResponse<AuctionSummaryResponse> response = auctionService.getAuctionsBySearchCondition(category, grade, keyword, sort, pageable);
         return ResponseEntity.ok(response);

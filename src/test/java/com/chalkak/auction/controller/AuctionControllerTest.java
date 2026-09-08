@@ -172,6 +172,13 @@ class AuctionControllerTest {
     }
 
     @Test
+    void 페이징_size가_상한을_초과하면_50으로_제한된다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("size", "100000"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.size").value(50));
+    }
+
+    @Test
     void 존재하지_않는_category_값이면_400을_응답한다() throws Exception {
         mockMvc.perform(get("/api/v1/auctions").param("category", "NOT_EXIST"))
             .andExpect(status().isBadRequest())
