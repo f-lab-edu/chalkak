@@ -7,6 +7,7 @@ import com.chalkak.auction.controller.request.AuctionRequest;
 import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
 import com.chalkak.auction.controller.response.AuctionStatusResponse;
+import com.chalkak.auction.controller.response.AuctionSummaryResponse;
 import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.auction.fixture.AuctionRequestFixture;
@@ -14,6 +15,7 @@ import com.chalkak.auction.fixture.MultipartFileFixture;
 import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
+import com.chalkak.common.response.PageResponse;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
@@ -21,6 +23,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -124,5 +127,52 @@ class AuctionServiceTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("경매 정보가 존재하지 않습니다.");
+    }
+
+    @Test
+    void 정상_조회하면_경매_목록을_응답한다() {
+        User owner = userRepository.save(UserFixture.create());
+        AuctionRequest request = AuctionRequestFixture.create();
+        auctionService.register(owner.getId(), request, MultipartFileFixture.images(3));
+
+        PageResponse<AuctionSummaryResponse> response = auctionService.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(0, 10));
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).camera().brand()).isEqualTo(request.brand());
+        assertThat(response.content().get(0).camera().modelName()).isEqualTo(request.modelName());
+    }
+
+    @Test
+    void 응답의_썸네일은_가장_먼저_등록한_이미지다() {
+        User owner = userRepository.save(UserFixture.create());
+        AuctionRequest request = AuctionRequestFixture.create();
+        AuctionResponse registered = auctionService.register(owner.getId(), request, MultipartFileFixture.images(3));
+        String expectedThumbnail = cameraImageRepository
+            .findFirstByCameraIdOrderByIdAsc(registered.cameraId())
+            .orElseThrow()
+            .getImageKey();
+
+        PageResponse<AuctionSummaryResponse> response = auctionService.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(0, 10));
+
+        assertThat(response.content().get(0).camera().thumbnailImage()).isEqualTo(expectedThumbnail);
+    }
+
+    @Test
+    void 페이지네이션_메타데이터가_응답에_포함된다() {
+        User owner = userRepository.save(UserFixture.create());
+        for (int i = 0; i < 3; i++) {
+            auctionService.register(owner.getId(), AuctionRequestFixture.create(), MultipartFileFixture.images(3));
+        }
+
+        PageResponse<AuctionSummaryResponse> response = auctionService.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(0, 2));
+
+        assertThat(response.content()).hasSize(2);
+        assertThat(response.page()).isZero();
+        assertThat(response.size()).isEqualTo(2);
+        assertThat(response.totalElements()).isEqualTo(3);
+        assertThat(response.totalPages()).isEqualTo(2);
     }
 }

@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface AuctionRepository extends JpaRepository<Auction, Long> {
+public interface AuctionRepository extends JpaRepository<Auction, Long>, AuctionCustomRepository{
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select a from Auction a where a.id = :auctionId")
   Optional<Auction> findByIdWithLock(@Param("auctionId") Long id);
