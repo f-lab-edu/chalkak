@@ -13,6 +13,7 @@ import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
+import com.chalkak.common.util.ImageUrls;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
@@ -58,7 +59,7 @@ public class AuctionService {
         Auction auction = getAuction(auctionId);
 
         List<String> imageUrls = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
-            .map(image -> "/api/v1/images/" + image.getId())
+            .map(image -> ImageUrls.download(image.getId()))
             .toList();
 
         return AuctionDetailResponse.from(auction, imageUrls);
