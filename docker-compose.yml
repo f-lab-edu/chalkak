@@ -2,6 +2,14 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: chalkak-postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
     restart: unless-stopped
     ports:
       - "5432:5432"
