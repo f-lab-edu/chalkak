@@ -181,6 +181,58 @@ class AuctionControllerTest {
             .andExpect(status().isNotFound());
     }
 
+    @Test
+    void 로그인하지_않아도_200과_경매_목록을_응답한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
+            .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void size와_page_파라미터로_페이지네이션이_적용된다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions").param("page", "0").param("size", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(1))
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    void 페이징_size가_상한을_초과하면_50으로_제한된다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("size", "100000"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.size").value(50));
+    }
+
+    @Test
+    void 존재하지_않는_category_값이면_400을_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("category", "NOT_EXIST"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON-001"));
+    }
+
+    @Test
+    void 존재하지_않는_sort_값이면_400을_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("sort", "PRICE_ASC"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON-001"));
+    }
+
     private Long registerAuction(MockHttpSession session) throws Exception {
         MvcResult result = mockMvc.perform(multipart("/api/v1/auctions")
                 .file(requestPart())
