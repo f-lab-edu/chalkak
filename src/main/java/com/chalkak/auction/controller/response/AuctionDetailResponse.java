@@ -21,13 +21,13 @@ public record AuctionDetailResponse(
     // TODO: User에 실제 nickname 필드가 추가되면 임시 닉네임 생성 로직을 제거한다.
     private static final String TEMP_NICKNAME_PREFIX = "판매자";
 
-    public static AuctionDetailResponse from(Auction auction, List<String> imageKeys) {
+    public static AuctionDetailResponse from(Auction auction, List<String> imageUrls) {
         Camera camera = auction.getCamera();
         Long sellerId = camera.getOwner().getId();
 
         return new AuctionDetailResponse(
             auction.getId(),
-            CameraInfo.from(camera, imageKeys),
+            CameraInfo.from(camera, imageUrls),
             SellerInfo.from(sellerId, TEMP_NICKNAME_PREFIX + sellerId),
             auction.getStartPrice(),
             auction.getCurrentPrice(),
@@ -43,10 +43,9 @@ public record AuctionDetailResponse(
         String modelName,
         CameraConditionGrade conditionGrade,
         String description,
-        // TODO: FileStorage에 다운로드 URL 조회 기능이 추가되면 key 대신 다운로드 가능한 경로를 내려준다.
-        List<String> imageKeys
+        List<String> imageUrls
     ) {
-        private static CameraInfo from(Camera camera, List<String> imageKeys) {
+        private static CameraInfo from(Camera camera, List<String> imageUrls) {
             return new CameraInfo(
                 camera.getId(),
                 camera.getCategory(),
@@ -54,7 +53,7 @@ public record AuctionDetailResponse(
                 camera.getModelName(),
                 camera.getConditionGrade(),
                 camera.getDescription(),
-                imageKeys
+                imageUrls
             );
         }
     }

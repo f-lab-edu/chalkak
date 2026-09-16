@@ -93,7 +93,8 @@ class AuctionServiceTest {
         assertThat(response.camera().modelName()).isEqualTo(request.modelName());
         assertThat(response.camera().conditionGrade()).isEqualTo(request.conditionGrade());
         assertThat(response.camera().description()).isEqualTo(request.description());
-        assertThat(response.camera().imageKeys()).hasSize(3);
+        assertThat(response.camera().imageUrls()).hasSize(3);
+        assertThat(response.camera().imageUrls()).allMatch(url -> url.startsWith("/api/v1/images/"));
         assertThat(response.seller().id()).isEqualTo(owner.getId());
         assertThat(response.seller().nickname()).isEqualTo("판매자" + owner.getId());
         assertThat(response.status()).isEqualTo(AuctionStatus.IN_PROGRESS);

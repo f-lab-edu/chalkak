@@ -9,7 +9,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class MultipartFileFixture {
 
     public static MockMultipartFile image(String filename) {
-        return new MockMultipartFile("images", filename, MediaType.IMAGE_JPEG_VALUE, "image-content".getBytes());
+        return image(filename, "image-content".getBytes());
+    }
+
+    public static MockMultipartFile image(String filename, byte[] content) {
+        return new MockMultipartFile("images", filename, MediaType.IMAGE_JPEG_VALUE, content);
     }
 
     public static List<MultipartFile> images(int count) {

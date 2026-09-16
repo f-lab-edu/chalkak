@@ -9,7 +9,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum FileErrorCode implements ErrorCode {
-    UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-001", "파일 업로드에 실패했습니다.");
+    UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-001", "파일 업로드에 실패했습니다."),
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "FILE-002", "파일을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -2,6 +2,7 @@ package com.chalkak.config;
 
 import java.util.List;
 
+import com.chalkak.common.util.ImageUrls;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +50,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PERMIT_ALL_PATHS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auctions/**").permitAll()
+                .requestMatchers(HttpMethod.GET, ImageUrls.BASE_PATH + "/**").permitAll()
                 .anyRequest().authenticated()
             )
             .logout(logout -> logout
