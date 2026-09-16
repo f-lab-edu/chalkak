@@ -1,5 +1,6 @@
 package com.chalkak.auction.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -12,7 +13,10 @@ import com.chalkak.auction.fixture.MultipartFileFixture;
 import com.chalkak.auth.controller.request.AuthRequest;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,7 +116,44 @@ class AuctionControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
             .andExpect(jsonPath("$.camera.modelName").value(AuctionRequestFixture.DEFAULT_MODEL_NAME))
-            .andExpect(jsonPath("$.camera.imageKeys.length()").value(3));
+            .andExpect(jsonPath("$.camera.imageUrls.length()").value(3));
+    }
+
+    @Test
+    void 경매_상세조회_응답의_이미지_URL로_다운로드하면_업로드한_이미지와_동일한_바이트를_반환한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        Set<String> uploadedContents = Set.of("image1-content", "image2-content", "image3-content");
+
+        MvcResult registerResult = mockMvc.perform(multipart("/api/v1/auctions")
+                .file(requestPart())
+                .file(MultipartFileFixture.image("image1.jpg", "image1-content".getBytes()))
+                .file(MultipartFileFixture.image("image2.jpg", "image2-content".getBytes()))
+                .file(MultipartFileFixture.image("image3.jpg", "image3-content".getBytes()))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        Long auctionId = objectMapper.readTree(registerResult.getResponse().getContentAsString()).get("id").asLong();
+
+        MvcResult detailResult = mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        JsonNode imageUrls = objectMapper.readTree(detailResult.getResponse().getContentAsString())
+            .path("camera").path("imageUrls");
+
+        Set<String> downloadedContents = new HashSet<>();
+        for (JsonNode imageUrl : imageUrls) {
+            MvcResult downloadResult = mockMvc.perform(get(imageUrl.asText()))
+                .andExpect(status().isOk())
+                .andReturn();
+            downloadedContents.add(new String(downloadResult.getResponse().getContentAsByteArray()));
+        }
+
+        assertThat(downloadedContents).isEqualTo(uploadedContents);
     }
 
     @Test
@@ -138,6 +179,58 @@ class AuctionControllerTest {
     void 존재하지_않는_경매의_상태를_조회하면_404를_응답한다() throws Exception {
         mockMvc.perform(get("/api/v1/auctions/{auctionId}/status", -1L))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 로그인하지_않아도_200과_경매_목록을_응답한다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
+            .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void size와_page_파라미터로_페이지네이션이_적용된다() throws Exception {
+        userRepository.save(UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, passwordEncoder.encode(RAW_PASSWORD), UserFixture.DEFAULT_PHONE));
+        MockHttpSession session = login(UserFixture.DEFAULT_EMAIL);
+        registerAuction(session);
+        registerAuction(session);
+
+        mockMvc.perform(get("/api/v1/auctions").param("page", "0").param("size", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(1))
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    void 페이징_size가_상한을_초과하면_50으로_제한된다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("size", "100000"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.size").value(50));
+    }
+
+    @Test
+    void 존재하지_않는_category_값이면_400을_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("category", "NOT_EXIST"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON-001"));
+    }
+
+    @Test
+    void 존재하지_않는_sort_값이면_400을_응답한다() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions").param("sort", "PRICE_ASC"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON-001"));
     }
 
     private Long registerAuction(MockHttpSession session) throws Exception {

@@ -4,8 +4,12 @@ import com.chalkak.auction.controller.request.AuctionRequest;
 import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
 import com.chalkak.auction.controller.response.AuctionStatusResponse;
+import com.chalkak.auction.controller.response.AuctionSummaryResponse;
 import com.chalkak.auction.entity.Auction;
+import com.chalkak.auction.entity.AuctionSortType;
 import com.chalkak.auction.entity.Camera;
+import com.chalkak.auction.entity.CameraCategory;
+import com.chalkak.auction.entity.CameraConditionGrade;
 import com.chalkak.auction.entity.CameraImage;
 import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.auction.repository.AuctionRepository;
@@ -13,11 +17,15 @@ import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
+import com.chalkak.common.util.ImageUrls;
+import com.chalkak.common.response.PageResponse;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,15 +65,35 @@ public class AuctionService {
     public AuctionDetailResponse getDetail(Long auctionId) {
         Auction auction = getAuction(auctionId);
 
-        List<String> imageKeys = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
-            .map(CameraImage::getImageKey)
+        List<String> imageUrls = cameraImageRepository.findByCameraId(auction.getCamera().getId()).stream()
+            .map(image -> ImageUrls.download(image.getId()))
             .toList();
 
-        return AuctionDetailResponse.from(auction, imageKeys);
+        return AuctionDetailResponse.from(auction, imageUrls);
     }
 
     public AuctionStatusResponse getStatus(Long auctionId) {
         return AuctionStatusResponse.from(getAuction(auctionId));
+    }
+
+    public PageResponse<AuctionSummaryResponse> getAuctionsBySearchCondition(
+        CameraCategory category,
+        CameraConditionGrade grade,
+        String keyword,
+        AuctionSortType sort,
+        Pageable pageable
+    ) {
+        Page<Auction> auctions = auctionRepository.getAuctionsBySearchCondition(
+            category, grade, keyword, sort, pageable);
+
+        Page<AuctionSummaryResponse> summaries = auctions.map(auction -> {
+            String thumbnailImage = cameraImageRepository
+                .findFirstByCameraIdOrderByIdAsc(auction.getCamera().getId())
+                .map(CameraImage::getImageKey)
+                .orElse(null);
+            return AuctionSummaryResponse.from(auction, thumbnailImage);
+        });
+        return PageResponse.of(summaries);
     }
 
     private Auction getAuction(Long auctionId) {
