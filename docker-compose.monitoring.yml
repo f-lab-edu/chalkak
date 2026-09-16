@@ -1,0 +1,66 @@
+services:
+  spring:
+    environment:
+      SPRING_PROFILES_ACTIVE: loadtest
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-chalkak}
+      DB_USERNAME: ${POSTGRES_USER:-chalkak}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-chalkak}
+    container_name: chalkak-application
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  prometheus:
+    image: prom/prometheus
+    container_name: chalkak-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: always
+  grafana:
+    image: grafana/grafana
+    container_name: chalkak-grafana
+    ports:
+      - "3001:3000"
+    restart: always
+    depends_on:
+      - prometheus
+  k6:
+    image: grafana/k6:latest
+    container_name: chalkak-k6
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
+    volumes:
+      - ./monitoring/k6/script.js:/script.js
+    entrypoint: ["sh", "-c"]
+    command: ["sleep 5 && k6 run /script.js"]
+    network_mode: host
+  postgres-exporter:
+    container_name: postgres-exporter
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-chalkak}:${POSTGRES_PASSWORD:-chalkak}@postgres:5432/${POSTGRES_DB:-chalkak}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy

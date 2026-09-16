@@ -26,7 +26,8 @@ public class SecurityConfig {
 
     private static final String[] PERMIT_ALL_PATHS = {
         "/api/v1/users",
-        "/api/v1/auth/login"
+        "/api/v1/auth/login",
+        "/actuator/prometheus"
     };
 
     @Value("${cors.allowed-origins}")

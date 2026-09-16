@@ -3,11 +3,11 @@ server:
   servlet:
     session:
       cookie:
-        same-site: none
-        secure: true
+        same-site: lax
+        secure: false
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  allowed-origins: http://localhost:8080
 
 spring:
   datasource:
@@ -27,4 +27,4 @@ spring:
 
 logging:
   level:
-    com.chalkak: info
+    com.chalkak: warn
