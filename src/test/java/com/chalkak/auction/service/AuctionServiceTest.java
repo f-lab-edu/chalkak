@@ -16,6 +16,7 @@ import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.common.response.PageResponse;
+import com.chalkak.common.util.ImageUrls;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
@@ -149,10 +150,10 @@ class AuctionServiceTest {
         User owner = userRepository.save(UserFixture.create());
         AuctionRequest request = AuctionRequestFixture.create();
         AuctionResponse registered = auctionService.register(owner.getId(), request, MultipartFileFixture.images(3));
-        String expectedThumbnail = cameraImageRepository
+        String expectedThumbnail = ImageUrls.download(cameraImageRepository
             .findFirstByCameraIdOrderByIdAsc(registered.cameraId())
             .orElseThrow()
-            .getImageKey();
+            .getId());
 
         PageResponse<AuctionSummaryResponse> response = auctionService.getAuctionsBySearchCondition(
             null, null, null, null, PageRequest.of(0, 10));

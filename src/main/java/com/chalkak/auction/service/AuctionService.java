@@ -89,7 +89,7 @@ public class AuctionService {
         Page<AuctionSummaryResponse> summaries = auctions.map(auction -> {
             String thumbnailImage = cameraImageRepository
                 .findFirstByCameraIdOrderByIdAsc(auction.getCamera().getId())
-                .map(CameraImage::getImageKey)
+                .map(image -> ImageUrls.download(image.getId()))
                 .orElse(null);
             return AuctionSummaryResponse.from(auction, thumbnailImage);
         });
