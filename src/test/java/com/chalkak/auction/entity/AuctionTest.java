@@ -41,4 +41,23 @@ class AuctionTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.INVALID_CLOSES_AT);
     }
+
+    @Test
+    void 입찰이_없으면_마감시_유찰로_변경된다() {
+        Auction auction = AuctionFixture.create();
+
+        auction.close();
+
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.FAILED);
+    }
+
+    @Test
+    void 입찰이_있으면_마감시_낙찰로_변경된다() {
+        Auction auction = AuctionFixture.create();
+        auction.updateCurrentPrice(AuctionFixture.DEFAULT_START_PRICE.add(BigDecimal.valueOf(1_000)));
+
+        auction.close();
+
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.SUCCESSFUL);
+    }
 }

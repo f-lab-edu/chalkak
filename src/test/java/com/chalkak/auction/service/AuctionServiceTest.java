@@ -8,11 +8,17 @@ import com.chalkak.auction.controller.response.AuctionDetailResponse;
 import com.chalkak.auction.controller.response.AuctionResponse;
 import com.chalkak.auction.controller.response.AuctionStatusResponse;
 import com.chalkak.auction.controller.response.AuctionSummaryResponse;
+import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.AuctionStatus;
+import com.chalkak.auction.entity.Camera;
 import com.chalkak.auction.exception.AuctionErrorCode;
+import com.chalkak.auction.fixture.AuctionFixture;
 import com.chalkak.auction.fixture.AuctionRequestFixture;
+import com.chalkak.auction.fixture.CameraFixture;
 import com.chalkak.auction.fixture.MultipartFileFixture;
+import com.chalkak.auction.repository.AuctionRepository;
 import com.chalkak.auction.repository.CameraImageRepository;
+import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.common.response.PageResponse;
@@ -20,12 +26,15 @@ import com.chalkak.common.util.ImageUrls;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,6 +51,12 @@ class AuctionServiceTest {
 
     @Autowired
     private CameraImageRepository cameraImageRepository;
+
+    @Autowired
+    private CameraRepository cameraRepository;
+
+    @Autowired
+    private AuctionRepository auctionRepository;
 
     @Test
     void 정상_등록하면_Camera_CameraImage_Auction이_모두_저장된다() {
@@ -176,5 +191,44 @@ class AuctionServiceTest {
         assertThat(response.size()).isEqualTo(2);
         assertThat(response.totalElements()).isEqualTo(3);
         assertThat(response.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void 마감_시각이_지나고_입찰이_없으면_유찰로_변경된다() {
+        User owner = userRepository.save(UserFixture.create());
+        Camera camera = cameraRepository.save(CameraFixture.create(owner));
+        Auction expired = auctionRepository.save(AuctionFixture.create(camera));
+        ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+
+        auctionService.closeExpiredAuctions();
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.FAILED);
+    }
+
+    @Test
+    void 마감_시각이_지나고_입찰이_있으면_낙찰로_변경된다() {
+        User owner = userRepository.save(UserFixture.create());
+        Camera camera = cameraRepository.save(CameraFixture.create(owner));
+        Auction expired = auctionRepository.save(AuctionFixture.create(camera));
+        expired.updateCurrentPrice(AuctionFixture.DEFAULT_START_PRICE.add(BigDecimal.valueOf(1_000)));
+        ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+
+        auctionService.closeExpiredAuctions();
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.SUCCESSFUL);
+    }
+
+    @Test
+    void 마감_시각이_지나지_않은_경매는_상태가_변경되지_않는다() {
+        User owner = userRepository.save(UserFixture.create());
+        Camera camera = cameraRepository.save(CameraFixture.create(owner));
+        Auction notExpired = auctionRepository.save(AuctionFixture.create(camera));
+
+        auctionService.closeExpiredAuctions();
+
+        assertThat(auctionRepository.findById(notExpired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.IN_PROGRESS);
     }
 }
