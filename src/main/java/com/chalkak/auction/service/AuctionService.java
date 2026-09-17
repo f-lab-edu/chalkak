@@ -7,6 +7,7 @@ import com.chalkak.auction.controller.response.AuctionStatusResponse;
 import com.chalkak.auction.controller.response.AuctionSummaryResponse;
 import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.AuctionSortType;
+import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.entity.Camera;
 import com.chalkak.auction.entity.CameraCategory;
 import com.chalkak.auction.entity.CameraConditionGrade;
@@ -18,6 +19,7 @@ import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.common.util.ImageUrls;
+import com.chalkak.common.util.TimeUtils;
 import com.chalkak.common.response.PageResponse;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
@@ -94,6 +96,12 @@ public class AuctionService {
             return AuctionSummaryResponse.from(auction, thumbnailImage);
         });
         return PageResponse.of(summaries);
+    }
+
+    @Transactional
+    public void closeExpiredAuctions() {
+        auctionRepository.findAllByStatusAndExtendedClosesAtBefore(AuctionStatus.IN_PROGRESS, TimeUtils.now())
+            .forEach(Auction::close);
     }
 
     private Auction getAuction(Long auctionId) {

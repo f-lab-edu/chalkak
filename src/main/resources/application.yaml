@@ -4,6 +4,10 @@ spring:
   profiles:
     active: local
 
+scheduler:
+  auction-close:
+    fixed-delay: 60000
+
 management:
   endpoints:
     web:

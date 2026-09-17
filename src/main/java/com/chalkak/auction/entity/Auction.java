@@ -92,6 +92,14 @@ public class Auction extends BaseEntity {
         this.currentPrice = bidAmount;
     }
 
+    public void close() {
+        this.status = hasBid() ? AuctionStatus.SUCCESSFUL : AuctionStatus.FAILED;
+    }
+
+    private boolean hasBid() {
+        return currentPrice.compareTo(startPrice) > 0;
+    }
+
     public void updateExtendCloseAt() {
         LocalDateTime now = TimeUtils.now();
         if (now.isBefore(this.extendedClosesAt.minusMinutes(EXTEND_THRESHOLD_MINUTES))) {

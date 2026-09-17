@@ -1,7 +1,10 @@
 package com.chalkak.auction.repository;
 
 import com.chalkak.auction.entity.Auction;
+import com.chalkak.auction.entity.AuctionStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -14,4 +17,6 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, Auction
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select a from Auction a where a.id = :auctionId")
   Optional<Auction> findByIdWithLock(@Param("auctionId") Long id);
+
+  List<Auction> findAllByStatusAndExtendedClosesAtBefore(AuctionStatus status, LocalDateTime time);
 }
