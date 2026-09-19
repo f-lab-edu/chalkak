@@ -5,6 +5,7 @@ import com.chalkak.auction.entity.AuctionStatus;
 import com.chalkak.auction.entity.Camera;
 import com.chalkak.auction.entity.CameraCategory;
 import com.chalkak.auction.entity.CameraConditionGrade;
+import com.chalkak.user.entity.User;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,17 +19,13 @@ public record AuctionDetailResponse(
     AuctionStatus status,
     LocalDateTime closesAt
 ) {
-    // TODO: User에 실제 nickname 필드가 추가되면 임시 닉네임 생성 로직을 제거한다.
-    private static final String TEMP_NICKNAME_PREFIX = "판매자";
-
     public static AuctionDetailResponse from(Auction auction, List<String> imageUrls) {
         Camera camera = auction.getCamera();
-        Long sellerId = camera.getOwner().getId();
 
         return new AuctionDetailResponse(
             auction.getId(),
             CameraInfo.from(camera, imageUrls),
-            SellerInfo.from(sellerId, TEMP_NICKNAME_PREFIX + sellerId),
+            SellerInfo.from(camera.getOwner()),
             auction.getStartPrice(),
             auction.getCurrentPrice(),
             auction.getStatus(),
@@ -62,8 +59,8 @@ public record AuctionDetailResponse(
         Long id,
         String nickname
     ) {
-        private static SellerInfo from(Long id, String nickname) {
-            return new SellerInfo(id, nickname);
+        private static SellerInfo from(User owner) {
+            return new SellerInfo(owner.getId(), owner.getNickname());
         }
     }
 }
