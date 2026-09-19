@@ -20,20 +20,23 @@ public class UserService {
 
     @Transactional
     public void signUp(UserRequest request) {
-        validateDuplicate(request.email(), request.phone());
+        validateDuplicate(request.email(), request.phone(), request.nickname());
 
         String encodePwd = passwordEncoder.encode(request.password());
-        User user = User.signUp(request.email(), encodePwd, request.phone());
+        User user = User.signUp(request.email(), encodePwd, request.phone(), request.nickname());
 
         userRepository.save(user);
     }
 
-    private void validateDuplicate(String email, String phone) {
+    private void validateDuplicate(String email, String phone, String nickname) {
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
         }
         if (userRepository.existsByPhone(phone)) {
             throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
+        }
+        if (userRepository.existsByNickname(nickname)) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
     }
 }

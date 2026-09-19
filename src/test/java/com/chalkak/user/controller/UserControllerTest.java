@@ -72,4 +72,22 @@ class UserControllerTest {
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("USER-003"));
     }
+
+    @Test
+    void 이미_가입된_닉네임이면_409를_응답한다() throws Exception {
+        UserRequest request = UserRequestFixture.create();
+        mockMvc.perform(post("/api/v1/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isNoContent());
+
+        UserRequest duplicateNicknameRequest = new UserRequest(
+            "other@chalkak.com", UserRequestFixture.DEFAULT_PASSWORD, "010-9999-9999", UserRequestFixture.DEFAULT_NICKNAME);
+
+        mockMvc.perform(post("/api/v1/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(duplicateNicknameRequest)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("USER-006"));
+    }
 }

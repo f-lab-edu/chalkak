@@ -25,6 +25,8 @@ public class User extends BaseEntity implements Serializable {
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("^01\\d-\\d{3,4}-\\d{4}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
+    private static final int NICKNAME_MIN_LENGTH = 2;
+    private static final int NICKNAME_MAX_LENGTH = 10;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,17 +41,22 @@ public class User extends BaseEntity implements Serializable {
     @Column(nullable = false, unique = true)
     String phone;
 
-    private User(String email, String encodedPassword, String phone) {
+    @Column(nullable = false, unique = true)
+    String nickname;
+
+    private User(String email, String encodedPassword, String phone, String nickname) {
         validateEmail(email);
         validatePhone(phone);
+        validateNickname(nickname);
 
         this.email = email;
         this.password = encodedPassword;
         this.phone = phone;
+        this.nickname = nickname;
     }
 
-    public static User signUp(String email, String encodedPassword, String phone) {
-        return new User(email, encodedPassword, phone);
+    public static User signUp(String email, String encodedPassword, String phone, String nickname) {
+        return new User(email, encodedPassword, phone, nickname);
     }
 
     private static void validateEmail(String email) {
@@ -61,6 +68,12 @@ public class User extends BaseEntity implements Serializable {
     private static void validatePhone(String phone) {
         if (!PHONE_PATTERN.matcher(phone).matches()) {
             throw new BusinessException(UserErrorCode.INVALID_PHONE_FORMAT);
+        }
+    }
+
+    private static void validateNickname(String nickname) {
+        if (nickname == null || nickname.length() < NICKNAME_MIN_LENGTH || nickname.length() > NICKNAME_MAX_LENGTH) {
+            throw new BusinessException(UserErrorCode.INVALID_NICKNAME_LENGTH);
         }
     }
 }

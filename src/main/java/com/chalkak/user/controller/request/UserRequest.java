@@ -3,6 +3,7 @@ package com.chalkak.user.controller.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public record UserRequest(
     @NotBlank
@@ -14,6 +15,10 @@ public record UserRequest(
 
     @NotBlank
     @Pattern(regexp = "^01\\d-\\d{3,4}-\\d{4}$")
-    String phone
+    String phone,
+
+    @NotBlank
+    @Size(min = 2, max = 10)
+    String nickname
 ) {
 }

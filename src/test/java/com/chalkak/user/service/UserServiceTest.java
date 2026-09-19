@@ -62,4 +62,16 @@ class UserServiceTest {
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.DUPLICATE_PHONE);
     }
+
+    @Test
+    void 이미_가입된_닉네임이면_예외가_발생한다() {
+        userService.signUp(UserRequestFixture.create());
+
+        UserRequest duplicateNicknameRequest = new UserRequest(
+            "other@chalkak.com", UserRequestFixture.DEFAULT_PASSWORD, "010-9999-9999", UserRequestFixture.DEFAULT_NICKNAME);
+
+        assertThatThrownBy(() -> userService.signUp(duplicateNicknameRequest))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.DUPLICATE_NICKNAME);
+    }
 }

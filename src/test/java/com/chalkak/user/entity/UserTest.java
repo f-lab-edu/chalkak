@@ -17,6 +17,7 @@ class UserTest {
         assertThat(user.getEmail()).isEqualTo(UserFixture.DEFAULT_EMAIL);
         assertThat(user.getPassword()).isEqualTo(UserFixture.DEFAULT_ENCODED_PASSWORD);
         assertThat(user.getPhone()).isEqualTo(UserFixture.DEFAULT_PHONE);
+        assertThat(user.getNickname()).isEqualTo(UserFixture.DEFAULT_NICKNAME);
     }
 
     @Test
@@ -28,6 +29,13 @@ class UserTest {
     @Test
     void 전화번호_형식이_올바르지_않으면_예외가_발생한다() {
         assertThatThrownBy(() -> UserFixture.create(UserFixture.DEFAULT_EMAIL, UserFixture.DEFAULT_ENCODED_PASSWORD, "01012345678"))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void 닉네임_길이가_유효_범위를_벗어나면_예외가_발생한다() {
+        assertThatThrownBy(() -> UserFixture.create(
+            UserFixture.DEFAULT_EMAIL, UserFixture.DEFAULT_ENCODED_PASSWORD, UserFixture.DEFAULT_PHONE, "a"))
             .isInstanceOf(BusinessException.class);
     }
 }
