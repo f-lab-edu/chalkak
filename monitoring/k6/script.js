@@ -1,15 +1,22 @@
 import http from 'k6/http';
-import { check } from 'k6';
-
-const AUCTION_ID = __ENV.AUCTION_ID || 1;
+import {check} from 'k6';
 
 export const options = {
-  vus: 10,
-  duration: '30s',
+  scenarios: {
+    constant_rps: {
+      executor: 'constant-arrival-rate',
+      rate: 10,
+      timeUnit: '1s',
+      duration: '30s',
+      preAllocatedVUs: 20,
+      maxVUs: 100,
+    },
+  },
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
 
 export default function () {
-  const response = http.get(`http://localhost:8080/api/v1/auctions/${AUCTION_ID}`);
+  const response = http.get('http://localhost:8080/api/v1/auctions');
 
   check(response, {
     'is status 200': (r) => r.status === 200,
