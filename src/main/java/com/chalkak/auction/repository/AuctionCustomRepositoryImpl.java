@@ -1,7 +1,9 @@
 package com.chalkak.auction.repository;
 
 import static com.chalkak.auction.entity.QAuction.auction;
+import static com.chalkak.auction.entity.QCamera.camera;
 import static com.chalkak.bid.entity.QBid.bid;
+import static com.chalkak.user.entity.QUser.user;
 
 import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.AuctionSortType;
@@ -39,6 +41,8 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
     List<Auction> results = queryFactory
         .select(auction)
         .from(auction)
+        .leftJoin(auction.camera, camera).fetchJoin()
+        .leftJoin(camera.owner, user).fetchJoin()
         .where(
             QueryUtils.equalsIfNotNull(auction.status, AuctionStatus.IN_PROGRESS),
             auction.extendedClosesAt.gt(TimeUtils.now()),
