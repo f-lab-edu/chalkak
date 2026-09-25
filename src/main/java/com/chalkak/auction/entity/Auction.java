@@ -12,6 +12,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -23,8 +24,13 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "auctions")
-@Getter
+@Table(
+    name = "auctions",
+    indexes = @Index(
+        name = "idx_auctions_status_closes_at_created_at",
+        columnList = "status, extended_closes_at, created_at DESC, id DESC"
+    )
+)@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Auction extends BaseEntity {
