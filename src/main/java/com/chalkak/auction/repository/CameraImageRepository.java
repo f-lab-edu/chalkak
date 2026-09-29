@@ -10,5 +10,6 @@ import org.springframework.stereotype.Repository;
 public interface CameraImageRepository extends JpaRepository<CameraImage, Long> {
     List<CameraImage> findByCameraId(Long cameraId);
     Optional<CameraImage> findFirstByCameraIdOrderByIdAsc(Long cameraId);
+    List<CameraImage> findByCameraIdIn(List<Long> cameraIds);
 
 }

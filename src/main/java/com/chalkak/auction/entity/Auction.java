@@ -22,6 +22,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+// 경매 목록 조회(status='IN_PROGRESS')용 인덱스는 partial index로 DB에 직접 생성되어 있음.
+// JPA @Index는 WHERE 조건을 지원하지 않아 여기서는 선언하지 않음.
+// CREATE INDEX idx_auctions_in_progress_created_at
+//     ON auctions (created_at DESC, id DESC)
+//     WHERE status = 'IN_PROGRESS';
 @Entity
 @Table(name = "auctions")
 @Getter

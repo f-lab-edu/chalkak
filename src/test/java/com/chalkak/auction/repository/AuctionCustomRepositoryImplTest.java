@@ -22,8 +22,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -48,7 +48,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(dslr));
         em.persistAndFlush(AuctionFixture.create(lens));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             CameraCategory.DSLR, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
@@ -65,7 +65,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(gradeS));
         em.persistAndFlush(AuctionFixture.create(gradeC));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, CameraConditionGrade.S, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
@@ -82,7 +82,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(matched));
         em.persistAndFlush(AuctionFixture.create(categoryOnlyMatched));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             CameraCategory.DSLR, CameraConditionGrade.A, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
@@ -99,7 +99,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(canon));
         em.persistAndFlush(AuctionFixture.create(nikon));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, "canon", null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
@@ -116,7 +116,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(matched));
         em.persistAndFlush(AuctionFixture.create(notMatched));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, "R5", null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
@@ -131,7 +131,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(AuctionFixture.create(camera1));
         em.persistAndFlush(AuctionFixture.create(camera2));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(2);
@@ -147,7 +147,7 @@ class AuctionCustomRepositoryImplTest {
         ReflectionTestUtils.setField(successful, "status", AuctionStatus.SUCCESSFUL);
         em.persistAndFlush(successful);
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -166,7 +166,7 @@ class AuctionCustomRepositoryImplTest {
         ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
         em.persistAndFlush(expired);
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -183,7 +183,7 @@ class AuctionCustomRepositoryImplTest {
         Thread.sleep(10);
         Auction lastRegistered = em.persistAndFlush(AuctionFixture.create(camera2));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, AuctionSortType.LATEST, PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -201,7 +201,7 @@ class AuctionCustomRepositoryImplTest {
         Auction closingLater = em.persistAndFlush(
             AuctionFixture.create(camera2, BigDecimal.valueOf(10_000), LocalDateTime.now().plusDays(5)));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, AuctionSortType.CLOSING_SOON, PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -222,9 +222,9 @@ class AuctionCustomRepositoryImplTest {
         Auction auction3 = em.persistAndFlush(AuctionFixture.create(camera3, BigDecimal.valueOf(10_000), sameClosesAt));
         Auction auction4 = em.persistAndFlush(AuctionFixture.create(camera4, BigDecimal.valueOf(10_000), sameClosesAt));
 
-        Page<Auction> firstPage = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> firstPage = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, AuctionSortType.CLOSING_SOON, PageRequest.of(0, 2));
-        Page<Auction> secondPage = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> secondPage = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, AuctionSortType.CLOSING_SOON, PageRequest.of(1, 2));
 
         assertThat(firstPage.getContent())
@@ -246,7 +246,7 @@ class AuctionCustomRepositoryImplTest {
         em.persistAndFlush(BidFixture.create(popular, bidder, BigDecimal.valueOf(11_000)));
         em.persistAndFlush(BidFixture.create(popular, bidder, BigDecimal.valueOf(12_000)));
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, AuctionSortType.BID_COUNT, PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -262,11 +262,25 @@ class AuctionCustomRepositoryImplTest {
             em.persistAndFlush(AuctionFixture.create(camera));
         }
 
-        Page<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
             null, null, null, null, PageRequest.of(0, 2));
 
         assertThat(result.getContent()).hasSize(2);
-        assertThat(result.getTotalElements()).isEqualTo(3);
-        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.hasNext()).isTrue();
+    }
+
+    @Test
+    void 마지막_페이지면_다음_페이지가_없다() {
+        User owner = em.persistAndFlush(UserFixture.create());
+        for (int i = 0; i < 3; i++) {
+            Camera camera = em.persistAndFlush(CameraFixture.create(owner));
+            em.persistAndFlush(AuctionFixture.create(camera));
+        }
+
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(1, 2));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.hasNext()).isFalse();
     }
 }

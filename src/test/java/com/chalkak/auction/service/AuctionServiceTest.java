@@ -189,8 +189,7 @@ class AuctionServiceTest {
         assertThat(response.content()).hasSize(2);
         assertThat(response.page()).isZero();
         assertThat(response.size()).isEqualTo(2);
-        assertThat(response.totalElements()).isEqualTo(3);
-        assertThat(response.totalPages()).isEqualTo(2);
+        assertThat(response.hasNext()).isTrue();
     }
 
     @Test

@@ -18,16 +18,19 @@ import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
+import com.chalkak.common.response.PageResponse;
 import com.chalkak.common.util.ImageUrls;
 import com.chalkak.common.util.TimeUtils;
-import com.chalkak.common.response.PageResponse;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -85,16 +88,24 @@ public class AuctionService {
         AuctionSortType sort,
         Pageable pageable
     ) {
-        Page<Auction> auctions = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> auctions = auctionRepository.getAuctionsBySearchCondition(
             category, grade, keyword, sort, pageable);
 
-        Page<AuctionSummaryResponse> summaries = auctions.map(auction -> {
-            String thumbnailImage = cameraImageRepository
-                .findFirstByCameraIdOrderByIdAsc(auction.getCamera().getId())
-                .map(image -> ImageUrls.download(image.getId()))
-                .orElse(null);
-            return AuctionSummaryResponse.from(auction, thumbnailImage);
-        });
+        List<Long> cameraIds = auctions.getContent().stream()
+            .map(auction -> auction.getCamera().getId())
+            .toList();
+
+        Map<Long, String> thumbnailImageByCameraId = cameraImageRepository.findByCameraIdIn(cameraIds).stream()
+            .collect(Collectors.groupingBy(
+                image -> image.getCamera().getId(),
+                Collectors.collectingAndThen(
+                    Collectors.minBy(Comparator.comparing(CameraImage::getId)),
+                    firstImage -> firstImage.map(image -> ImageUrls.download(image.getId())).orElse(null)
+                )
+            ));
+
+        Slice<AuctionSummaryResponse> summaries = auctions.map(auction ->
+            AuctionSummaryResponse.from(auction, thumbnailImageByCameraId.get(auction.getCamera().getId())));
         return PageResponse.of(summaries);
     }
 

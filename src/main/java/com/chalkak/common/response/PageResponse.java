@@ -2,22 +2,20 @@ package com.chalkak.common.response;
 
 import java.util.List;
 
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 
 public record PageResponse<T>(
     List<T> content,
     int page,
     int size,
-    long totalElements,
-    int totalPages
+    boolean hasNext
 ) {
-    public static <T> PageResponse<T> of(Page<T> page) {
+    public static <T> PageResponse<T> of(Slice<T> page) {
         return new PageResponse<>(
             page.getContent(),
             page.getNumber(),
             page.getSize(),
-            page.getTotalElements(),
-            page.getTotalPages()
+            page.hasNext()
         );
     }
 }

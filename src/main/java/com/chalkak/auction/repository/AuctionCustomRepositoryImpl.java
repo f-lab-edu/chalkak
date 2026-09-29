@@ -1,7 +1,9 @@
 package com.chalkak.auction.repository;
 
 import static com.chalkak.auction.entity.QAuction.auction;
+import static com.chalkak.auction.entity.QCamera.camera;
 import static com.chalkak.bid.entity.QBid.bid;
+import static com.chalkak.user.entity.QUser.user;
 
 import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.AuctionSortType;
@@ -17,9 +19,9 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.support.PageableExecutionUtils;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -29,7 +31,7 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
   private final JPAQueryFactory queryFactory;
 
   @Override
-  public Page<Auction> getAuctionsBySearchCondition(
+  public Slice<Auction> getAuctionsBySearchCondition(
       CameraCategory category,
       CameraConditionGrade grade,
       String keyword,
@@ -39,6 +41,8 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
     List<Auction> results = queryFactory
         .select(auction)
         .from(auction)
+        .leftJoin(auction.camera, camera).fetchJoin()
+        .leftJoin(camera.owner, user).fetchJoin()
         .where(
             QueryUtils.equalsIfNotNull(auction.status, AuctionStatus.IN_PROGRESS),
             auction.extendedClosesAt.gt(TimeUtils.now()),
@@ -50,24 +54,13 @@ public class AuctionCustomRepositoryImpl implements AuctionCustomRepository{
         )
         .orderBy(getOrderSpec(sort), auction.id.desc())
         .offset(pageable.getOffset())
-        .limit(pageable.getPageSize())
+        .limit(pageable.getPageSize() + 1)
         .fetch();
 
-    Long totalCount = queryFactory
-        .select(auction.count())
-        .from(auction)
-        .where(
-            QueryUtils.equalsIfNotNull(auction.status, AuctionStatus.IN_PROGRESS),
-            auction.extendedClosesAt.gt(TimeUtils.now()),
-            QueryUtils.equalsIfNotNull(auction.camera.category, category),
-            QueryUtils.equalsIfNotNull(auction.camera.conditionGrade, grade),
-            QueryUtils.containsIgnoreCase(auction.camera.brand, keyword)
-                .or(QueryUtils.containsIgnoreCase(auction.camera.modelName, keyword)
-                    .or(QueryUtils.containsIgnoreCase(auction.camera.description, keyword)))
-        )
-        .fetchOne();
+    boolean hasNext = results.size() > pageable.getPageSize();
+    List<Auction> content = hasNext ? results.subList(0, pageable.getPageSize()) : results;
 
-    return PageableExecutionUtils.getPage(results, pageable, () -> totalCount);
+    return new SliceImpl<>(content, pageable, hasNext);
   }
 
   private NumberExpression<Long> getBidCount() {
