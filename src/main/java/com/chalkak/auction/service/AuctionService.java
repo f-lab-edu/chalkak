@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -88,7 +88,7 @@ public class AuctionService {
         AuctionSortType sort,
         Pageable pageable
     ) {
-        Page<Auction> auctions = auctionRepository.getAuctionsBySearchCondition(
+        Slice<Auction> auctions = auctionRepository.getAuctionsBySearchCondition(
             category, grade, keyword, sort, pageable);
 
         List<Long> cameraIds = auctions.getContent().stream()
@@ -104,7 +104,7 @@ public class AuctionService {
                 )
             ));
 
-        Page<AuctionSummaryResponse> summaries = auctions.map(auction ->
+        Slice<AuctionSummaryResponse> summaries = auctions.map(auction ->
             AuctionSummaryResponse.from(auction, thumbnailImageByCameraId.get(auction.getCamera().getId())));
         return PageResponse.of(summaries);
     }

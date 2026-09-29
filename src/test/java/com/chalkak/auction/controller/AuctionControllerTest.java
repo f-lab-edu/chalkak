@@ -192,7 +192,7 @@ class AuctionControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content.length()").value(1))
             .andExpect(jsonPath("$.content[0].camera.brand").value(AuctionRequestFixture.DEFAULT_BRAND))
-            .andExpect(jsonPath("$.totalElements").value(1));
+            .andExpect(jsonPath("$.hasNext").value(false));
     }
 
     @Test
@@ -208,8 +208,7 @@ class AuctionControllerTest {
             .andExpect(jsonPath("$.content.length()").value(1))
             .andExpect(jsonPath("$.page").value(0))
             .andExpect(jsonPath("$.size").value(1))
-            .andExpect(jsonPath("$.totalElements").value(2))
-            .andExpect(jsonPath("$.totalPages").value(2));
+            .andExpect(jsonPath("$.hasNext").value(true));
     }
 
     @Test
