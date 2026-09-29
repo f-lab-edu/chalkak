@@ -12,7 +12,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -23,14 +22,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+// 경매 목록 조회(status='IN_PROGRESS')용 인덱스는 partial index로 DB에 직접 생성되어 있음.
+// JPA @Index는 WHERE 조건을 지원하지 않아 여기서는 선언하지 않음.
+// CREATE INDEX idx_auctions_in_progress_created_at
+//     ON auctions (created_at DESC, id DESC)
+//     WHERE status = 'IN_PROGRESS';
 @Entity
-@Table(
-    name = "auctions",
-    indexes = @Index(
-        name = "idx_auctions_status_closes_at_created_at",
-        columnList = "status, extended_closes_at, created_at DESC, id DESC"
-    )
-)@Getter
+@Table(name = "auctions")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Auction extends BaseEntity {
