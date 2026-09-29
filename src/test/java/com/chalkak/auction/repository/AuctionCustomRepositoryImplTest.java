@@ -268,4 +268,19 @@ class AuctionCustomRepositoryImplTest {
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.hasNext()).isTrue();
     }
+
+    @Test
+    void 마지막_페이지면_다음_페이지가_없다() {
+        User owner = em.persistAndFlush(UserFixture.create());
+        for (int i = 0; i < 3; i++) {
+            Camera camera = em.persistAndFlush(CameraFixture.create(owner));
+            em.persistAndFlush(AuctionFixture.create(camera));
+        }
+
+        Slice<Auction> result = auctionRepository.getAuctionsBySearchCondition(
+            null, null, null, null, PageRequest.of(1, 2));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.hasNext()).isFalse();
+    }
 }
