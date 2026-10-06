@@ -6,16 +6,19 @@ file:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:chalkak;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    # 운영과 같은 PostgreSQL 이미지를 Testcontainers로 띄운다 (테스트 실행 시 Docker 필요)
+    url: jdbc:tc:postgresql:16-alpine:///chalkak
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     hikari:
       maximum-pool-size: 10
   jpa:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
+  # @DataJpaTest가 datasource를 내장 DB로 바꾸지 않고 위 PostgreSQL을 쓰도록 한다
+  test:
+    database:
+      replace: none
   data:
     web:
       pageable:
