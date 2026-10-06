@@ -73,6 +73,9 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1024M
+    environment:
+      MODE: ${MODE:-smoke}
+      VUS: ${VUS:-20}
     volumes:
       - ./monitoring/k6/script.js:/script.js
     entrypoint: ["sh", "-c"]
