@@ -28,3 +28,4 @@ spring:
 logging:
   level:
     com.chalkak: warn
+    com.chalkak.loadtest: info
