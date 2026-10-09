@@ -208,4 +208,5 @@ gradle-app.setting
 application-local.yaml
 .env
 .claude
+monitoring/k6/*.html
 # End of https://www.toptal.com/developers/gitignore/api/macos,gradle,java,intellij
