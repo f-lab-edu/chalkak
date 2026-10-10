@@ -76,6 +76,9 @@ services:
     environment:
       MODE: ${MODE:-smoke}
       VUS: ${VUS:-20}
+      RATE: ${RATE:-50}
+      PRE_VUS: ${PRE_VUS:-50}
+      MAX_VUS: ${MAX_VUS:-500}
     volumes:
       - ./monitoring/k6/script.js:/script.js
     entrypoint: ["sh", "-c"]

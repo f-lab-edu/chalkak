@@ -20,9 +20,16 @@ const INITIAL_POINT = 50000000;
 const SMOKE_ITERATIONS = 30;
 const CONCURRENT_DURATION = '30s';
 
-// 실행: k6 run -e MODE=smoke|concurrent|spread -e VUS=20 script.js (기본값 smoke, VUS는 concurrent·spread에서만 사용)
+// 실행: k6 run -e MODE=smoke|concurrent|spread|rps -e VUS=20 -e RATE=200 -e PRE_VUS=50 -e MAX_VUS=500 script.js
+// (기본값 smoke, VUS는 concurrent·spread에서만, RATE·PRE_VUS·MAX_VUS는 rps에서만 사용)
 const MODE = __ENV.MODE || 'smoke';
 const CONCURRENT_VUS = Number(__ENV.VUS || 20);
+// rps: 초당 시작하는 반복 수. 반복 1번 = 현재가 조회 + 입찰 2요청이라 초당 HTTP 요청 수는 RATE의 2배
+const RPS_RATE = Number(__ENV.RATE || 50);
+const RPS_DURATION = '30s';
+// rps: 필요한 VU ≈ RATE × 반복 1번에 걸리는 시간(초). 서버가 느려지면 필요한 VU가 늘고, MAX_VUS를 넘으면 k6가 dropped_iterations로 기록한다
+const RPS_PRE_VUS = Number(__ENV.PRE_VUS || 50);
+const RPS_MAX_VUS = Number(__ENV.MAX_VUS || 500);
 
 const bidCreated = new Counter('bid_created');
 const bidRejectedLow = new Counter('bid_rejected_low');
@@ -51,6 +58,16 @@ const SCENARIOS = {
     vus: CONCURRENT_VUS,
     duration: CONCURRENT_DURATION,
   },
+  // 응답을 기다리지 않고 초당 정해진 수만큼 hot 경매에 입찰을 시작한다. 서버가 느려져도 요청 속도는 줄지 않는다
+  rps: {
+    executor: 'constant-arrival-rate',
+    exec: 'concurrentBid',
+    rate: RPS_RATE,
+    timeUnit: '1s',
+    duration: RPS_DURATION,
+    preAllocatedVUs: RPS_PRE_VUS,
+    maxVUs: RPS_MAX_VUS,
+  },
 };
 
 const THRESHOLDS = {
@@ -70,16 +87,26 @@ const THRESHOLDS = {
     bid_created: ['count>0'],
     bid_rejected_low: ['count>0'],
   },
+  // 요청 속도가 낮으면 입찰이 겹치지 않아 현재가 이하 실패가 없을 수 있고, 한계를 넘기면 타임아웃이 나는 게 정상이라 둘 다 실패 조건에서 뺀다
+  rps: {
+    bid_created: ['count>0'],
+  },
 };
 
 if (!SCENARIOS[MODE]) {
-  throw new Error(`알 수 없는 MODE: ${MODE} (smoke | concurrent | spread)`);
+  throw new Error(`알 수 없는 MODE: ${MODE} (smoke | concurrent | spread | rps)`);
 }
 
 const AUCTION_IDS = MODE === 'spread' ? SPREAD_AUCTION_IDS : [HOT_AUCTION_ID];
 const RESET_SQL = MODE === 'spread' ? 'reset_spread_test.sql' : 'reset_bid_test.sql';
 if (!Number.isInteger(CONCURRENT_VUS) || CONCURRENT_VUS < 1) {
   throw new Error(`VUS는 1 이상의 정수여야 합니다: ${__ENV.VUS}`);
+}
+if (!Number.isInteger(RPS_RATE) || RPS_RATE < 1) {
+  throw new Error(`RATE는 1 이상의 정수여야 합니다: ${__ENV.RATE}`);
+}
+if (!Number.isInteger(RPS_PRE_VUS) || RPS_PRE_VUS < 1 || !Number.isInteger(RPS_MAX_VUS) || RPS_MAX_VUS < RPS_PRE_VUS) {
+  throw new Error(`PRE_VUS는 1 이상, MAX_VUS는 PRE_VUS 이상의 정수여야 합니다: PRE_VUS=${__ENV.PRE_VUS}, MAX_VUS=${__ENV.MAX_VUS}`);
 }
 
 export const options = {
@@ -249,7 +276,7 @@ export function teardown(sessions) {
 
   if (MODE === 'smoke') {
     verifySmoke(currentPrices[0], points);
-  } else if (MODE === 'concurrent') {
+  } else if (MODE === 'concurrent' || MODE === 'rps') {
     verifyConcurrent(currentPrices[0], points);
   } else {
     verifySpread(currentPrices, points);
