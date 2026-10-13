@@ -24,6 +24,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  localstack:
+    image: localstack/localstack:2026.03.0
+    container_name: chalkak-localstack
+    restart: unless-stopped
+    ports:
+      - "4566:4566"
+    environment:
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:?LOCALSTACK_AUTH_TOKEN is required}
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ap-northeast-2
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s localhost:4566/_localstack/init/ready | grep -q '\"completed\": true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres-data:
