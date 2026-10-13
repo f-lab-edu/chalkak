@@ -20,8 +20,8 @@ const INITIAL_POINT = 50000000;
 const SMOKE_ITERATIONS = 30;
 const CONCURRENT_DURATION = '30s';
 
-// 실행: k6 run -e MODE=smoke|concurrent|spread|rps -e VUS=20 -e RATE=200 -e PRE_VUS=50 -e MAX_VUS=500 script.js
-// (기본값 smoke, VUS는 concurrent·spread에서만, RATE·PRE_VUS·MAX_VUS는 rps에서만 사용)
+// 실행: k6 run -e MODE=smoke|concurrent|spread|rps|mixed -e VUS=20 -e RATE=200 -e PRE_VUS=50 -e MAX_VUS=500 -e LIST_RATE=20 -e LIST_PRE_VUS=100 -e LIST_MAX_VUS=500 script.js
+// (기본값 smoke, VUS는 concurrent·spread에서만, RATE·PRE_VUS·MAX_VUS는 rps·mixed에서만, LIST_로 시작하는 값은 mixed에서만 사용)
 const MODE = __ENV.MODE || 'smoke';
 const CONCURRENT_VUS = Number(__ENV.VUS || 20);
 // rps: 초당 시작하는 반복 수. 반복 1번 = 현재가 조회 + 입찰 2요청이라 초당 HTTP 요청 수는 RATE의 2배
@@ -30,6 +30,11 @@ const RPS_DURATION = '30s';
 // rps: 필요한 VU ≈ RATE × 반복 1번에 걸리는 시간(초). 서버가 느려지면 필요한 VU가 늘고, MAX_VUS를 넘으면 k6가 dropped_iterations로 기록한다
 const RPS_PRE_VUS = Number(__ENV.PRE_VUS || 50);
 const RPS_MAX_VUS = Number(__ENV.MAX_VUS || 500);
+// mixed: 입찰과 함께 초당 시작하는 경매 목록 조회 수
+const LIST_RATE = Number(__ENV.LIST_RATE || 20);
+// mixed: 시나리오끼리 VU를 나눠 쓰지 않으므로 입찰의 MAX_VUS와 따로 둔다. 목록 조회는 요청 속도가 낮아 VU가 적게 필요하다
+const LIST_PRE_VUS = Number(__ENV.LIST_PRE_VUS || 100);
+const LIST_MAX_VUS = Number(__ENV.LIST_MAX_VUS || 500);
 
 const bidCreated = new Counter('bid_created');
 const bidRejectedLow = new Counter('bid_rejected_low');
@@ -70,6 +75,21 @@ const SCENARIOS = {
   },
 };
 
+// mixed: rps 입찰과 같은 시간 동안 경매 목록을 일정한 속도로 조회해서, 입찰이 몰릴 때 다른 API가 얼마나 느려지는지 본다
+// 목록 조회도 응답을 기다리지 않고 시작하므로, 서버가 느려지면 응답 시간에 그대로 드러난다
+const MIXED_SCENARIOS = {
+  rps: SCENARIOS.rps,
+  list: {
+    executor: 'constant-arrival-rate',
+    exec: 'listAuctions',
+    rate: LIST_RATE,
+    timeUnit: '1s',
+    duration: RPS_DURATION,
+    preAllocatedVUs: LIST_PRE_VUS,
+    maxVUs: LIST_MAX_VUS,
+  },
+};
+
 const THRESHOLDS = {
   smoke: {
     bid_created: [`count==${SMOKE_ITERATIONS}`],
@@ -91,10 +111,13 @@ const THRESHOLDS = {
   rps: {
     bid_created: ['count>0'],
   },
+  mixed: {
+    bid_created: ['count>0'],
+  },
 };
 
-if (!SCENARIOS[MODE]) {
-  throw new Error(`알 수 없는 MODE: ${MODE} (smoke | concurrent | spread | rps)`);
+if (!SCENARIOS[MODE] && MODE !== 'mixed') {
+  throw new Error(`알 수 없는 MODE: ${MODE} (smoke | concurrent | spread | rps | mixed)`);
 }
 
 const AUCTION_IDS = MODE === 'spread' ? SPREAD_AUCTION_IDS : [HOT_AUCTION_ID];
@@ -105,12 +128,18 @@ if (!Number.isInteger(CONCURRENT_VUS) || CONCURRENT_VUS < 1) {
 if (!Number.isInteger(RPS_RATE) || RPS_RATE < 1) {
   throw new Error(`RATE는 1 이상의 정수여야 합니다: ${__ENV.RATE}`);
 }
+if (!Number.isInteger(LIST_RATE) || LIST_RATE < 1) {
+  throw new Error(`LIST_RATE는 1 이상의 정수여야 합니다: ${__ENV.LIST_RATE}`);
+}
+if (!Number.isInteger(LIST_PRE_VUS) || LIST_PRE_VUS < 1 || !Number.isInteger(LIST_MAX_VUS) || LIST_MAX_VUS < LIST_PRE_VUS) {
+  throw new Error(`LIST_PRE_VUS는 1 이상, LIST_MAX_VUS는 LIST_PRE_VUS 이상의 정수여야 합니다: LIST_PRE_VUS=${__ENV.LIST_PRE_VUS}, LIST_MAX_VUS=${__ENV.LIST_MAX_VUS}`);
+}
 if (!Number.isInteger(RPS_PRE_VUS) || RPS_PRE_VUS < 1 || !Number.isInteger(RPS_MAX_VUS) || RPS_MAX_VUS < RPS_PRE_VUS) {
   throw new Error(`PRE_VUS는 1 이상, MAX_VUS는 PRE_VUS 이상의 정수여야 합니다: PRE_VUS=${__ENV.PRE_VUS}, MAX_VUS=${__ENV.MAX_VUS}`);
 }
 
 export const options = {
-  scenarios: {[MODE]: SCENARIOS[MODE]},
+  scenarios: MODE === 'mixed' ? MIXED_SCENARIOS : {[MODE]: SCENARIOS[MODE]},
   thresholds: Object.assign({}, THRESHOLDS[MODE], {
     bid_unexpected: ['count==0'],
     checks: ['rate==1'],
@@ -119,6 +148,7 @@ export const options = {
     'http_req_duration{api:read}': [],
     'http_req_duration{api:bid}': [],
     'http_req_duration{api:verify}': [],
+    'http_req_duration{api:list}': [],
   }),
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
@@ -259,6 +289,11 @@ export function spreadBid(sessions) {
   bidAboveCurrentPrice(session, auctionId);
 }
 
+export function listAuctions() {
+  const res = http.get(`${BASE_URL}/api/v1/auctions`, {tags: {api: 'list'}});
+  check(res, {'경매 목록 조회 200': (r) => r.status === 200});
+}
+
 function bidAboveCurrentPrice(session, auctionId) {
   const currentPrice = fetchCurrentPrice(auctionId, 'read');
   if (currentPrice === null) {
@@ -276,7 +311,7 @@ export function teardown(sessions) {
 
   if (MODE === 'smoke') {
     verifySmoke(currentPrices[0], points);
-  } else if (MODE === 'concurrent' || MODE === 'rps') {
+  } else if (MODE === 'concurrent' || MODE === 'rps' || MODE === 'mixed') {
     verifyConcurrent(currentPrices[0], points);
   } else {
     verifySpread(currentPrices, points);

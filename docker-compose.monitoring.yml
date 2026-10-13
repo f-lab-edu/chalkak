@@ -82,6 +82,9 @@ services:
       RATE: ${RATE:-50}
       PRE_VUS: ${PRE_VUS:-50}
       MAX_VUS: ${MAX_VUS:-500}
+      LIST_RATE: ${LIST_RATE:-20}
+      LIST_PRE_VUS: ${LIST_PRE_VUS:-100}
+      LIST_MAX_VUS: ${LIST_MAX_VUS:-500}
     volumes:
       - ./monitoring/k6/script.js:/script.js
     entrypoint: ["sh", "-c"]
