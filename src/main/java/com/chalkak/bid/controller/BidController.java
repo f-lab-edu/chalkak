@@ -2,11 +2,11 @@ package com.chalkak.bid.controller;
 
 import com.chalkak.auth.principal.AuthUserPrincipal;
 import com.chalkak.bid.controller.request.BidRequest;
-import com.chalkak.bid.controller.response.BidResponse;
-import com.chalkak.bid.service.BidService;
+import com.chalkak.bid.controller.response.BidAcceptedResponse;
+import com.chalkak.bid.service.BidRequestService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,15 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class BidController {
 
-    private final BidService bidService;
+    private final BidRequestService bidRequestService;
 
     @PostMapping
-    public ResponseEntity<BidResponse> submit(
+    public ResponseEntity<BidAcceptedResponse> submit(
         @AuthenticationPrincipal AuthUserPrincipal principal,
         @PathVariable Long auctionId,
         @Valid @RequestBody BidRequest request
     ) {
-        BidResponse response = bidService.submit(auctionId, principal.getUserId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        UUID requestId = bidRequestService.request(auctionId, principal.getUserId(), request);
+        return ResponseEntity.accepted().body(new BidAcceptedResponse(requestId));
     }
 }

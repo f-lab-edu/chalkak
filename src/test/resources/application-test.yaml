@@ -19,6 +19,11 @@ spring:
   test:
     database:
       replace: none
+  # SQS 클라이언트와 @SqsListener를 띄우지 않는다. SqsTemplate은 SqsTestConfig의 목으로 대신한다
+  cloud:
+    aws:
+      sqs:
+        enabled: false
   data:
     web:
       pageable:

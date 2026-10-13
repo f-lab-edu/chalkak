@@ -10,6 +10,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+      SQS_ENDPOINT: http://localstack:4566
     volumes:
       - ./monitoring/opentelemetry-javaagent.jar:/otel/opentelemetry-javaagent.jar
     container_name: chalkak-application
@@ -28,6 +29,8 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
   prometheus:
     image: prom/prometheus:v3.14.0
