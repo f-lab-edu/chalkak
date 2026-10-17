@@ -1,10 +1,13 @@
 -- 다중 경매 입찰 부하 테스트 전 초기화 스크립트
 -- 다중 경매 5개(175650, 192002, 203490, 220628, 299503)와 테스트 계정(test001~test100, user_id 2~101)의 포인트를 처음 상태로 되돌린다
 -- 5개 경매는 hot 경매(22046)와 같은 조건(시작가 10,000원, 마감 2026-10-30 23:59:59)으로 맞춰둔 경매다
+-- 큐에 이전 실행의 메시지가 남아 있으면 리셋 후에 처리되어 다시 입찰이 생기므로, 큐를 먼저 비운다
+--   docker exec chalkak-localstack awslocal sqs purge-queue --queue-url http://localhost:4566/000000000000/bid-queue.fifo
 -- 실행: docker exec -i chalkak-postgres psql -U chalkak -d chalkak -v ON_ERROR_STOP=1 < monitoring/k6/seed/reset_spread_test.sql
 
 BEGIN;
 
+DELETE FROM bid_requests WHERE auction_id IN (175650, 192002, 203490, 220628, 299503);
 DELETE FROM bids WHERE auction_id IN (175650, 192002, 203490, 220628, 299503);
 
 UPDATE auctions

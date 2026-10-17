@@ -1,9 +1,14 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
-import {check} from 'k6';
+import {check, sleep} from 'k6';
 import {Counter} from 'k6/metrics';
 
 const BASE_URL = 'http://localhost:8080';
+// k6는 host 네트워크로 실행되므로 LocalStack에 localhost로 접근한다
+const SQS_ENDPOINT = 'http://localhost:4566';
+const BID_QUEUE_URL = `${SQS_ENDPOINT}/000000000000/bid-queue.fifo`;
+// 입찰은 큐에 접수만 되고 컨슈머가 나중에 처리하므로, 검증 전에 큐가 빌 때까지 기다린다
+const QUEUE_DRAIN_TIMEOUT_SECONDS = 300;
 
 // 테스트 대상 경매는 모두 입찰 기록 없음, 시작가 10,000원, 마감 2026-10-30 23:59:59
 // hot: smoke·concurrent에서 사용하는 경매 1개
@@ -36,8 +41,8 @@ const LIST_RATE = Number(__ENV.LIST_RATE || 20);
 const LIST_PRE_VUS = Number(__ENV.LIST_PRE_VUS || 100);
 const LIST_MAX_VUS = Number(__ENV.LIST_MAX_VUS || 500);
 
-const bidCreated = new Counter('bid_created');
-const bidRejectedLow = new Counter('bid_rejected_low');
+// 입찰 API는 큐에 접수만 하고 202를 응답하므로, 성공·실패는 응답이 아니라 bid_requests와 BID_CONSUME 로그로 확인한다
+const bidAccepted = new Counter('bid_accepted');
 const bidTimeout = new Counter('bid_timeout');
 const bidUnexpected = new Counter('bid_unexpected');
 
@@ -92,27 +97,22 @@ const MIXED_SCENARIOS = {
 
 const THRESHOLDS = {
   smoke: {
-    bid_created: [`count==${SMOKE_ITERATIONS}`],
-    bid_rejected_low: ['count==0'],
+    bid_accepted: [`count==${SMOKE_ITERATIONS}`],
     bid_timeout: ['count==0'],
   },
   // 최대 부하까지 올려서 타임아웃이 나더라도 정합성이 지켜지는지 보는 것이 목적이라 타임아웃은 실패 조건에서 뺀다
-  // 타임아웃 건은 서버에 반영됐을 수 있으므로 검증 SQL의 입찰 기록 수와 대조한다
+  // 타임아웃 건은 큐에 접수됐을 수 있으므로 bid_requests 행 수와 대조한다
   concurrent: {
-    bid_created: ['count>0'],
-    // 현재가 이하 입찰 실패가 한 번도 없으면 입찰이 실제로 경쟁하지 않은 것이라 정합성 검증이 의미가 없다
-    bid_rejected_low: ['count>0'],
+    bid_accepted: ['count>0'],
   },
   spread: {
-    bid_created: ['count>0'],
-    bid_rejected_low: ['count>0'],
+    bid_accepted: ['count>0'],
   },
-  // 요청 속도가 낮으면 입찰이 겹치지 않아 현재가 이하 실패가 없을 수 있고, 한계를 넘기면 타임아웃이 나는 게 정상이라 둘 다 실패 조건에서 뺀다
   rps: {
-    bid_created: ['count>0'],
+    bid_accepted: ['count>0'],
   },
   mixed: {
-    bid_created: ['count>0'],
+    bid_accepted: ['count>0'],
   },
 };
 
@@ -139,6 +139,8 @@ if (!Number.isInteger(RPS_PRE_VUS) || RPS_PRE_VUS < 1 || !Number.isInteger(RPS_M
 }
 
 export const options = {
+  // 기본 60초로는 큐가 다 비기 전에 teardown이 끊길 수 있다
+  teardownTimeout: `${QUEUE_DRAIN_TIMEOUT_SECONDS + 60}s`,
   scenarios: MODE === 'mixed' ? MIXED_SCENARIOS : {[MODE]: SCENARIOS[MODE]},
   thresholds: Object.assign({}, THRESHOLDS[MODE], {
     bid_unexpected: ['count==0'],
@@ -209,15 +211,6 @@ function fetchPoint(session) {
   };
 }
 
-function errorCode(res) {
-  // 에러 응답이 JSON이 아니면 res.json()이 예외를 던지므로, 그 경우 코드 없음으로 처리한다
-  try {
-    return res.json('code');
-  } catch (e) {
-    return null;
-  }
-}
-
 function bid(session, auctionId, amount) {
   const res = http.post(
     `${BASE_URL}/api/v1/auctions/${auctionId}/bids`,
@@ -225,12 +218,10 @@ function bid(session, auctionId, amount) {
     Object.assign(authParams(session), {timeout: '10s', tags: {api: 'bid'}}),
   );
 
-  if (res.status === 201) {
-    bidCreated.add(1);
-  } else if (res.status === 400 && errorCode(res) === 'AUCTION-004') {
-    bidRejectedLow.add(1);
+  if (res.status === 202) {
+    bidAccepted.add(1);
   } else if (res.status === 0) {
-    // 클라이언트 타임아웃 또는 연결 실패: 서버에는 반영됐을 수 있어서 금액을 남겨두고 DB와 대조한다
+    // 클라이언트 타임아웃 또는 연결 실패: 큐에는 접수됐을 수 있어서 금액을 남겨두고 DB와 대조한다
     bidTimeout.add(1);
     console.error(`TIMEOUT_BID auction=${auctionId} bidder=${session.email} amount=${amount} error=${res.error}`);
   } else {
@@ -249,8 +240,7 @@ export function setup() {
   });
 
   // 카운터가 한 번도 기록되지 않으면 threshold 판정에서 빠질 수 있어서 0으로 먼저 기록해 둔다
-  bidCreated.add(0);
-  bidRejectedLow.add(0);
+  bidAccepted.add(0);
   bidTimeout.add(0);
   bidUnexpected.add(0);
 
@@ -302,7 +292,42 @@ function bidAboveCurrentPrice(session, auctionId) {
   bid(session, auctionId, currentPrice + BID_STEP);
 }
 
+// 메시지는 컨슈머가 처리를 마친 뒤 삭제되므로, 대기(Messages)와 처리 중(NotVisible)이 모두 0이면 처리가 끝난 것이다
+function queueDepth() {
+  const res = http.post(SQS_ENDPOINT, JSON.stringify({
+    QueueUrl: BID_QUEUE_URL,
+    AttributeNames: ['ApproximateNumberOfMessages', 'ApproximateNumberOfMessagesNotVisible'],
+  }), {
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.0',
+      'X-Amz-Target': 'AmazonSQS.GetQueueAttributes',
+      // LocalStack은 서명을 검증하지 않지만, 큐가 있는 리전을 이 헤더에서 읽는다
+      'Authorization': 'AWS4-HMAC-SHA256 Credential=test/20260101/ap-northeast-2/sqs/aws4_request, SignedHeaders=host, Signature=test',
+    },
+    tags: {api: 'verify'},
+  });
+  if (res.status !== 200) {
+    exec.test.abort(`큐 상태 조회 실패: status=${res.status} body=${res.body}`);
+  }
+  const attributes = res.json('Attributes');
+  return Number(attributes.ApproximateNumberOfMessages) + Number(attributes.ApproximateNumberOfMessagesNotVisible);
+}
+
+function waitForQueueDrain() {
+  const startedAt = Date.now();
+  let depth = queueDepth();
+  while (depth > 0 && Date.now() - startedAt < QUEUE_DRAIN_TIMEOUT_SECONDS * 1000) {
+    sleep(1);
+    depth = queueDepth();
+  }
+  const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`queue drain: remaining=${depth} waited=${elapsedSeconds}s`);
+  check(null, {[`큐 소진 (${QUEUE_DRAIN_TIMEOUT_SECONDS}초 이내)`]: () => depth === 0});
+}
+
 export function teardown(sessions) {
+  waitForQueueDrain();
+
   const currentPrices = AUCTION_IDS.map((auctionId) => fetchCurrentPrice(auctionId, 'verify'));
   const points = sessions.map(fetchPoint);
 
