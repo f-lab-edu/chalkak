@@ -1,6 +1,7 @@
 package com.chalkak.loadtest;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 class BidRequestLog {
 
@@ -9,6 +10,8 @@ class BidRequestLog {
     final long auctionId;
     final long requestSeq;
     final long requestTime;
+    UUID requestId;
+    Long publishTime;
     Long lockSeq;
     Long lockAcquireTime;
     BigDecimal requestPrice;
@@ -39,8 +42,10 @@ class BidRequestLog {
     String format(int status) {
         return "BID_REQUEST auction_id=" + auctionId
             + " request_seq=" + requestSeq
+            + " request_id=" + valueOrDash(requestId)
             + " lock_seq=" + valueOrDash(lockSeq)
             + " request_time=" + requestTime
+            + " publish_time=" + valueOrDash(publishTime)
             + " lock_acquire_time=" + valueOrDash(lockAcquireTime)
             + " request_price=" + priceOrDash(requestPrice)
             + " current_price=" + priceOrDash(currentPrice)
@@ -48,11 +53,11 @@ class BidRequestLog {
     }
 
     // 락을 얻기 전에 실패한 요청은 락 관련 값이 비어 있다
-    private static String valueOrDash(Long value) {
+    static String valueOrDash(Object value) {
         return value == null ? "-" : value.toString();
     }
 
-    private static String priceOrDash(BigDecimal price) {
+    static String priceOrDash(BigDecimal price) {
         return price == null ? "-" : price.stripTrailingZeros().toPlainString();
     }
 }

@@ -21,4 +21,9 @@ public class LoadTestLogConfig {
     public BidRequestLogAspect bidRequestLogAspect() {
         return new BidRequestLogAspect();
     }
+
+    @Bean
+    public BidConsumeLogAspect bidConsumeLogAspect() {
+        return new BidConsumeLogAspect();
+    }
 }

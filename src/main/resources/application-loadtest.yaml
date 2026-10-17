@@ -39,3 +39,5 @@ logging:
   level:
     com.chalkak: warn
     com.chalkak.loadtest: info
+    # 큐 메시지 삭제(ack) 완료 시각을 남긴다. "Done acknowledging ... messages: [MessageId] in {}ms"
+    io.awspring.cloud.sqs.listener.acknowledgement.SqsAcknowledgementExecutor: trace
