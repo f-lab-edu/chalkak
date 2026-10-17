@@ -39,7 +39,6 @@ public class SseEmitterStore {
         auctionSubscribers.forEach(subscriber -> send(auctionId, subscriber, SseEmitter.event().name(eventName).data(data)));
     }
 
-    // 같은 사용자가 여러 탭에서 구독했으면 모든 연결로 보낸다
     public void sendTo(Long auctionId, Long userId, String eventName, Object data) {
         Set<Subscriber> auctionSubscribers = subscribers.get(auctionId);
         if (auctionSubscribers == null) {

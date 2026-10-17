@@ -26,7 +26,6 @@ public class BidRequestService {
     private final BidRequestResultRepository bidRequestResultRepository;
     private final BidMessageProducer producer;
 
-    // DB를 쓰지 않으므로 트랜잭션에서 뺀다. 트랜잭션이 시작되면 SQS 전송이 끝날 때까지 DB 커넥션을 붙잡는다
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UUID request(Long auctionId, Long bidderId, BidRequest bidRequest) {
         UUID requestId = UUID.randomUUID();
@@ -34,7 +33,6 @@ public class BidRequestService {
         return requestId;
     }
 
-    // 결과가 아직 없거나 다른 사람의 요청이면 PENDING으로 응답해서, 다른 사람의 요청이 존재한다는 사실도 드러내지 않는다
     @Transactional(readOnly = true)
     public BidResultResponse getResult(UUID requestId, Long userId) {
         return bidRequestResultRepository.findById(requestId)
