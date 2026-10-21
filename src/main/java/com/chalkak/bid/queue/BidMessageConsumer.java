@@ -7,9 +7,11 @@ import com.chalkak.common.exception.BusinessException;
 import com.chalkak.sse.SseEmitterStore;
 import io.awspring.cloud.sqs.annotation.SqsListener;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class BidMessageConsumer {
@@ -32,6 +34,7 @@ public class BidMessageConsumer {
             sseEmitterStore.broadcast(bid.auctionId(), AUCTION_STATUS_EVENT, status);
             sseEmitterStore.sendTo(bid.auctionId(), bid.bidderId(), BID_RESULT_EVENT, BidResultResponse.accepted(bid.requestId()));
         } catch (BusinessException e) {
+            log.warn("BusinessException occurred: requestId={}, code={}, message={}", bid.requestId(), e.getErrorCode().getCode(), e.getMessage());
             bidRequestService.reject(bid, e);
             sseEmitterStore.sendTo(bid.auctionId(), bid.bidderId(), BID_RESULT_EVENT, BidResultResponse.rejected(bid.requestId(), e.getErrorCode().getCode()));
         }
