@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
-        log.warn("BusinessException occurred: {}", e.getMessage(), e);
+        log.warn("BusinessException occurred: code={}, message={}", e.getErrorCode().getCode(), e.getMessage());
         ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity.status(errorCode.getStatus())
             .body(ErrorResponse.of(errorCode, e.getMessage()));
