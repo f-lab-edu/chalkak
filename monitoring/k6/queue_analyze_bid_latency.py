@@ -18,7 +18,7 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
   사용자 응답 시간 ⑥-① : 사용자가 결과를 받기까지 걸린 시간. 동기 방식의 api:bid와 비교한다
 
 실행:
-  python3 monitoring/k6/analyze_bid_queue_latency.py
+  python3 monitoring/k6/queue_analyze_bid_latency.py
 
 ack 로그는 application-loadtest.yaml에서 SqsAcknowledgementExecutor를 trace로 켜야 남는다.
 """
@@ -30,7 +30,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 
-from analyze_bid_queue_order import CONTAINER, KST, OUTPUT_DIR, PROCESSED, RUN_GAP_MS, fields_of, kst, none_if_dash, to_int
+from queue_analyze_bid_order import CONTAINER, KST, OUTPUT_DIR, PROCESSED, RUN_GAP_MS, fields_of, kst, none_if_dash, to_int
 
 ACK_MARKER = 'Done acknowledging'
 UUID_PATTERN = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')

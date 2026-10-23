@@ -77,12 +77,12 @@ services:
           cpus: '1.0'
           memory: 1024M
     environment:
-      MODE: ${MODE:-smoke}
-      VUS: ${VUS:-20}
+      BID_MODE: ${BID_MODE:-queue}
+      WARMUP: ${WARMUP:-false}
       RATE: ${RATE:-50}
       PRE_VUS: ${PRE_VUS:-50}
-      MAX_VUS: ${MAX_VUS:-500}
-      LIST_RATE: ${LIST_RATE:-20}
+      MAX_VUS: ${MAX_VUS:-2500}
+      LIST_RATE: ${LIST_RATE:-100}
       LIST_PRE_VUS: ${LIST_PRE_VUS:-100}
       LIST_MAX_VUS: ${LIST_MAX_VUS:-500}
     volumes:

@@ -9,10 +9,10 @@ request_seq 순으로 정렬했을 때 lock_seq가 계속 커지면 도착 순�
 앞서 도착한 요청보다 lock_seq가 작은 줄은 먼저 온 요청을 추월해 락을 얻은 것이다.
 
 실행:
-  python3 monitoring/k6/analyze_bid_order.py
+  python3 monitoring/k6/sync_analyze_bid_order.py
 
 실행 사이에 10초 이상 입찰 요청이 없으면 다른 실행으로 구분하므로, k6를 연달아 돌릴 때는 10초 이상 간격을 둔다.
-추출한 줄 수가 k6의 bid_created + bid_rejected_low + bid_timeout + bid_unexpected와 같은지 확인한다.
+추출한 줄 수가 k6의 bid_accepted + bid_rejected_low + bid_timeout + bid_unexpected와 같은지 확인한다.
 """
 
 import os

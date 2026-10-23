@@ -21,7 +21,7 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
      같은 금액끼리 경쟁해서 먼저 도착한 요청이 거절되고 늦게 도착한 요청이 성공한 경우. ②의 결과로 생긴다.
 
 실행:
-  python3 monitoring/k6/analyze_bid_queue_order.py
+  python3 monitoring/k6/queue_analyze_bid_order.py
 
 실행 사이에 10초 이상 입찰 요청이 없으면 다른 실행으로 구분하므로, k6를 연달아 돌릴 때는 10초 이상 간격을 둔다.
 202로 접수된 요청 수가 k6의 bid_accepted와 같은지, 처리 결과가 없는 요청이 0건인지 확인한다.

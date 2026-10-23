@@ -208,5 +208,10 @@ gradle-app.setting
 application-local.yaml
 .env
 .claude
-monitoring/k6/*.html
+# 부하 테스트 결과 (k6 원문, 분석 로그와 HTML)
+monitoring/k6/seed/경매 입찰 구조 개선*/
+monitoring/k6/**/*.html
+monitoring/k6/__pycache__/
+# JFR 녹화 파일
+monitoring/jfr/
 # End of https://www.toptal.com/developers/gitignore/api/macos,gradle,java,intellij

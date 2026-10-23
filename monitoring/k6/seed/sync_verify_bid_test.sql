@@ -1,6 +1,6 @@
--- 입찰 부하 테스트 후 정합성 검증 스크립트
+-- [동기(sync) 방식용] 입찰 부하 테스트 후 정합성 검증 스크립트
 -- hot 경매(22046)의 입찰 기록·현재가와 테스트 계정(user_id 2~101)의 포인트가 서로 맞는지 확인한다
--- 실행: docker exec -i chalkak-postgres psql -U chalkak -d chalkak < monitoring/k6/seed/verify_bid_test.sql
+-- 실행: docker exec -i chalkak-postgres psql -U chalkak -d chalkak < monitoring/k6/seed/sync_verify_bid_test.sql
 
 \set auction_id 22046
 \set initial_point 50000000
@@ -93,9 +93,9 @@ SELECT '6. available + locked <> 5천만 원인 계정 수',
 FROM unbalanced_point u
 
 UNION ALL
--- 타임아웃 응답도 서버에서는 커밋됐을 수 있으므로 bid_created ≤ 입찰 기록 수 ≤ bid_created + bid_timeout 이면 정상
+-- 타임아웃 응답도 서버에서는 커밋됐을 수 있으므로 bid_accepted ≤ 입찰 기록 수 ≤ bid_accepted + bid_timeout 이면 정상
 SELECT '7. 입찰 기록 수 (k6 결과와 직접 비교)',
-       'bid_created ~ bid_created + bid_timeout',
+       'bid_accepted ~ bid_accepted + bid_timeout',
        b.bid_count::text,
        'CHECK'
 FROM bid_stats b;
