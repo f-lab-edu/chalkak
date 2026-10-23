@@ -18,7 +18,9 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
      경매별로 request_seq 순으로 정렬했을 때, 앞서 도착한 요청보다 sqs_seq가 작은 요청.
      필터 도착부터 SQS 접수까지 사이에 순서가 바뀐 것이다.
   같은 금액 역전
-     같은 금액끼리 경쟁해서 먼저 도착한 요청이 거절되고 늦게 도착한 요청이 성공한 경우. ②의 결과로 생긴다.
+     같은 금액끼리 경쟁해서 순서가 앞선 요청이 거절되고 뒤인 요청이 성공한 경우. 거절된 요청 수로 센다.
+     ① 큐 이후 (보장 대상, 0이어야 한다) : sqs_seq 기준. 먼저 접수됐는데 거절된 요청
+     ② 큐 이전 (허용, 개수만 기록)       : request_seq 기준. 먼저 도착했는데 거절된 요청. ①이 0이면 ②의 큐 이전 역전 때문에 생긴 것이다.
 
 실행:
   python3 monitoring/k6/queue_analyze_bid_order.py
@@ -160,11 +162,12 @@ def mark_before_queue_reversal(requests):
     return count
 
 
-def mark_same_price_reversal(requests):
-    """같은 금액끼리 경쟁해서, 먼저 도착한 요청은 거절되고(reversed_loser) 늦게 도착한 요청이 성공한(reversed_winner) 경우를 표시한다"""
+def mark_same_price_reversal(requests, order, flag):
+    """같은 금액끼리 경쟁해서, order 기준으로 앞선 요청은 거절되고({flag}_loser) 뒤인 요청이 성공한({flag}_winner) 경우를 표시하고
+    거절된 요청 수를 반환한다"""
     winners = {}
     for request in requests:
-        request['reversed_loser'] = request['reversed_winner'] = False
+        request[f'{flag}_loser'] = request[f'{flag}_winner'] = False
         consume = request['consume']
         if consume and consume['result'] == 'ACCEPTED':
             winners[(request['auction_id'], consume['request_price'])] = request
@@ -176,9 +179,9 @@ def mark_same_price_reversal(requests):
             continue
         winner = winners.get((request['auction_id'], consume['request_price']))
         rejected_by_same_price = consume['current_price'] is not None and consume['current_price'] >= consume['request_price']
-        if winner and rejected_by_same_price and request['request_seq'] < winner['request_seq']:
-            request['reversed_loser'] = True
-            winner['reversed_winner'] = True
+        if winner and rejected_by_same_price and order(request) < order(winner):
+            request[f'{flag}_loser'] = True
+            winner[f'{flag}_winner'] = True
             count += 1
     return count
 
@@ -222,10 +225,14 @@ def note(request):
         notes.append('① 큐 이후 역전: 먼저 접수된 메시지보다 락을 먼저 얻음')
     if request['before_queue_reversal']:
         notes.append('② 큐 이전 역전: 먼저 도착한 요청보다 큐에 먼저 접수')
-    if request['reversed_loser']:
-        notes.append('같은 금액 역전: 먼저 왔는데 거절')
-    if request['reversed_winner']:
-        notes.append('같은 금액 역전: 늦게 왔는데 성공')
+    if request['after_same_price_loser']:
+        notes.append('① 같은 금액 역전: 먼저 접수됐는데 거절')
+    if request['after_same_price_winner']:
+        notes.append('① 같은 금액 역전: 늦게 접수됐는데 성공')
+    if request['before_same_price_loser']:
+        notes.append('② 같은 금액 역전: 먼저 도착했는데 거절')
+    if request['before_same_price_winner']:
+        notes.append('② 같은 금액 역전: 늦게 도착했는데 성공')
     if request['delivery_count'] > 1:
         notes.append(f"{request['delivery_count']}회 전달")
     return '  '.join(notes)
@@ -254,10 +261,11 @@ def write_html(path, requests, ranks, summary):
     rows = []
     for request in requests:
         consume = request['consume']
-        # 보장이 깨진 ①을 가장 눈에 띄게, 그다음 결과가 바뀐 같은 금액 역전, ② 순서로 칠한다
-        css = ('after' if consume and consume['after_queue_reversal']
+        # 보장이 깨진 ①을 가장 눈에 띄게, 그다음 결과가 바뀐 ② 같은 금액 역전, ② 순서로 칠한다
+        css = ('after' if (consume and consume['after_queue_reversal']) or request['after_same_price_loser']
+               or request['after_same_price_winner']
                else 'missing' if request['status'] == 202 and not consume
-               else 'loser' if request['reversed_loser'] else 'winner' if request['reversed_winner']
+               else 'loser' if request['before_same_price_loser'] else 'winner' if request['before_same_price_winner']
                else 'before' if request['before_queue_reversal'] else '')
         values = row(request, ranks)
         cells = ''.join(f"<td>{values[key]}</td>" for key, _, _ in COLUMNS)
@@ -281,9 +289,9 @@ def write_html(path, requests, ranks, summary):
   .winner {{ background: #c8e6c9; }}
 </style></head><body>
 <p>{'<br>'.join(summary)}</p>
-<p class="legend"><span class="after">① 큐 이후 역전 (0이어야 함)</span><span class="missing">처리 결과 없음</span>
-<span class="before">② 큐 이전 역전</span><span class="loser">같은 금액 역전: 먼저 왔는데 거절</span>
-<span class="winner">같은 금액 역전: 늦게 왔는데 성공</span></p>
+<p class="legend"><span class="after">① 큐 이후 역전, ① 같은 금액 역전 (0이어야 함)</span><span class="missing">처리 결과 없음</span>
+<span class="before">② 큐 이전 역전</span><span class="loser">② 같은 금액 역전: 먼저 도착했는데 거절</span>
+<span class="winner">② 같은 금액 역전: 늦게 도착했는데 성공</span></p>
 <table><thead><tr>{headers}<th>비고</th></tr></thead><tbody>
 {chr(10).join(rows)}
 </tbody></table></body></html>
@@ -301,7 +309,8 @@ if __name__ == '__main__':
 
     after_reversal = mark_after_queue_reversal(consumes)
     before_reversal = mark_before_queue_reversal(requests)
-    same_price_reversal = mark_same_price_reversal(requests)
+    after_same_price = mark_same_price_reversal(requests, lambda r: r['consume']['sqs_seq'], 'after_same_price')
+    before_same_price = mark_same_price_reversal(requests, lambda r: r['request_seq'], 'before_same_price')
     ranks = sqs_ranks(consumes)
 
     accepted_requests = [r for r in requests if r['status'] == 202]
@@ -321,7 +330,8 @@ if __name__ == '__main__':
         f"처리 결과 없음 {missing:,}건 (0이어야 함)",
         f"① 큐 이후 역전 {after_reversal:,}건 (0이어야 함)",
         f"② 큐 이전 역전 {before_reversal:,}건 ({percent(before_reversal, len(processed))})",
-        f"같은 금액 역전 {same_price_reversal:,}건",
+        f"① 같은 금액 역전 {after_same_price:,}건 (0이어야 함, 먼저 접수됐는데 거절된 요청)",
+        f"② 같은 금액 역전 {before_same_price:,}건 (먼저 도착했는데 거절된 요청)",
     ]
 
     started_at = datetime.fromtimestamp(min(r['request_time'] for r in requests) / 1000, KST).strftime('%Y%m%d_%H%M%S')
