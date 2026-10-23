@@ -10,7 +10,7 @@ public class SseHeartbeatScheduler {
 
     private final SseEmitterStore sseEmitterStore;
 
-    @Scheduled(fixedRate = 30_000)
+    @Scheduled(fixedDelayString = "${sse.heartbeat-interval}")
     public void sendHeartbeat() {
         sseEmitterStore.sendHeartbeat();
     }
