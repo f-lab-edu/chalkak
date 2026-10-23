@@ -21,7 +21,7 @@ class BidConsumeLogAspect {
         String sqsSeq = message.getHeaders().get(SqsHeaders.MessageSystemAttributes.SQS_SEQUENCE_NUMBER, String.class);
         BidConsumeLog consumeLog = BidConsumeLog.start(
             bid.requestId(), message.getHeaders().getId(), bid.auctionId(), sqsSeq,
-            System.currentTimeMillis(), bid.bidRequest().bidAmount());
+            System.currentTimeMillis(), bid.bidAmount());
 
         try {
             return joinPoint.proceed();

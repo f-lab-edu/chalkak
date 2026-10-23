@@ -99,7 +99,7 @@ class BidControllerTest {
         assertThat(message.requestId()).isEqualTo(requestId);
         assertThat(message.auctionId()).isEqualTo(auction.getId());
         assertThat(message.bidderId()).isEqualTo(bidder.getId());
-        assertThat(message.bidRequest().bidAmount()).isEqualByComparingTo("15000");
+        assertThat(message.bidAmount()).isEqualByComparingTo("15000");
     }
 
     @Test

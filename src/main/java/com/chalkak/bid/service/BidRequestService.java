@@ -33,7 +33,7 @@ public class BidRequestService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UUID request(Long auctionId, Long bidderId, BidRequest bidRequest) {
         UUID requestId = UUID.randomUUID();
-        producer.send(new BidMessage(requestId, auctionId, bidderId, bidRequest));
+        producer.send(new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount()));
         return requestId;
     }
 
@@ -50,9 +50,9 @@ public class BidRequestService {
     }
 
     public void accept(BidMessage message) {
-        BidResponse bid = bidService.submit(message.auctionId(), message.bidderId(), message.bidRequest());
+        BidResponse bid = bidService.submit(message.auctionId(), message.bidderId(), new BidRequest(message.bidAmount()));
         bidRequestResultRepository.save(BidRequestResult.accepted(
-            message.requestId(), message.auctionId(), message.bidderId(), message.bidRequest().bidAmount(), bid.id()));
+            message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), bid.id()));
         AuctionStatusResponse status = auctionService.getStatus(message.auctionId());
         eventPublisher.publishEvent(new BidAcceptedEvent(message.requestId(), message.auctionId(), message.bidderId(), status));
     }
@@ -60,7 +60,7 @@ public class BidRequestService {
     public void reject(BidMessage message, BusinessException e) {
         String errorCode = e.getErrorCode().getCode();
         bidRequestResultRepository.save(BidRequestResult.rejected(
-            message.requestId(), message.auctionId(), message.bidderId(), message.bidRequest().bidAmount(), errorCode));
+            message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), errorCode));
         eventPublisher.publishEvent(new BidRejectedEvent(message.requestId(), message.auctionId(), message.bidderId(), errorCode));
     }
 }
