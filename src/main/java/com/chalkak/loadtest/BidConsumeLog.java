@@ -17,7 +17,7 @@ class BidConsumeLog {
     final BigDecimal requestPrice;
     Long lockSeq;
     Long lockAcquireTime;
-    // 커밋과 SSE 알림까지 끝난 시각. 메시지 삭제(ack)는 이 뒤에 일어난다
+    // 커밋까지 끝난 시각. SSE 알림은 별도 스레드에서 보내므로 포함하지 않는다. 메시지 삭제(ack)는 이 뒤에 일어난다
     Long consumeEndTime;
     BigDecimal currentPrice;
     // accept/reject가 호출되지 않고 끝나면 이미 처리된 메시지라 건너뛴 것이다
