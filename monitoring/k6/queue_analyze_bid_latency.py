@@ -1,8 +1,9 @@
 """큐 방식 입찰 응답 시간 정리 스크립트
 
 k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가장 최근 실행분을 골라,
-요청 로그(BID_REQUEST), 컨슈머 로그(BID_CONSUME), 메시지 삭제 로그(Done acknowledging)를 한 줄로 잇는다.
+요청 로그(BID_REQUEST), 컨슈머 로그(BID_CONSUME), 알림 로그(BID_NOTIFY), 메시지 삭제 로그(Done acknowledging)를 한 줄로 잇는다.
   BID_REQUEST --request_id--> BID_CONSUME --message_id--> Done acknowledging
+              --request_id--> BID_NOTIFY
 결과는 bid_latency_<실행 시작 시각>.log에 서버 도착 순서(request_seq)로 남긴다.
 
 시각
@@ -10,12 +11,16 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
   ② 발행 완료  publish_time      SQS 발행이 끝남 (이후 202 응답)
   ④ 처리 시작  consume_time      컨슈머가 메시지를 받음
   ⑤ 락 획득    lock_acquire_time 경매 행 락을 얻음
-  ⑥ 처리 완료  consume_end_time  커밋과 SSE 알림까지 끝남
+  ⑥ 처리 완료  consume_end_time  커밋까지 끝남 (SSE 알림은 별도 스레드라 포함하지 않음)
   ⑦ 삭제 완료  ack 로그 시각     큐에서 메시지 삭제가 끝남
+  ⑧ 알림 시작  notify_start_time SSE 스레드가 알림 작업을 꺼냄
+  ⑨ 알림 완료  notify_end_time   SSE 전송이 끝남
 
 구간
   발행 ②-①, 큐 대기 ④-②, 처리 ⑥-④, 삭제 ⑦-⑥, 메시지 수명 ⑦-①
-  사용자 응답 시간 ⑥-① : 사용자가 결과를 받기까지 걸린 시간. 동기 방식의 api:bid와 비교한다
+  알림 대기 ⑧-⑥, 알림 전송 ⑨-⑧
+  사용자 응답 시간 ⑥-① : 입찰 결과가 확정되기까지 걸린 시간. 동기 방식의 api:bid와 비교한다
+  알림까지 시간 ⑨-①    : 결과 알림을 보내기까지 걸린 시간. k6는 SSE를 구독하지 않아 전송 시간은 실제보다 짧다
 
 실행:
   python3 monitoring/k6/queue_analyze_bid_latency.py
@@ -43,6 +48,9 @@ SPANS = [
     ('삭제', 'delete_ms'),
     ('메시지 수명', 'lifetime_ms'),
     ('사용자 응답 시간', 'response_ms'),
+    ('알림 대기', 'notify_wait_ms'),
+    ('알림 전송', 'notify_send_ms'),
+    ('알림까지 시간', 'notify_response_ms'),
 ]
 
 
@@ -68,6 +76,15 @@ def parse_consume(line):
         'lock_acquire_time': to_int(fields['lock_acquire_time']),
         'consume_end_time': int(fields['consume_end_time']),
         'result': fields['result'],
+    }
+
+
+def parse_notify(line):
+    _, fields = fields_of(line, 'BID_NOTIFY')
+    return {
+        'request_id': fields['request_id'],
+        'notify_start_time': int(fields['notify_start_time']),
+        'notify_end_time': int(fields['notify_end_time']),
     }
 
 
@@ -100,6 +117,13 @@ def extract_latest_run():
     consumes = [parse_consume(line) for line in lines if 'BID_CONSUME' in line]
     consumes = [c for c in consumes if c['request_id'] in request_ids]
 
+    notifies = {}
+    for line in lines:
+        if 'BID_NOTIFY' in line:
+            notify = parse_notify(line)
+            if notify['request_id'] in request_ids:
+                notifies[notify['request_id']] = notify
+
     message_ids = {c['message_id'] for c in consumes}
     acks = {}
     for line in lines:
@@ -107,10 +131,10 @@ def extract_latest_run():
             for message_id, ack_time, duration in parse_ack(line):
                 if message_id in message_ids:
                     acks[message_id] = (ack_time, duration)
-    return requests, consumes, acks
+    return requests, consumes, acks, notifies
 
 
-def join(requests, consumes, acks):
+def join(requests, consumes, acks, notifies):
     """요청마다 처리 결과와 삭제 시각을 붙이고 구간 시간을 계산한다"""
     by_request_id = defaultdict(list)
     for consume in consumes:
@@ -124,6 +148,7 @@ def join(requests, consumes, acks):
         ack = acks.get(consume['message_id']) if consume else None
 
         request['consume'] = consume
+        request['notify'] = notifies.get(request['request_id'])
         request['delivery_count'] = len(lines)
         request['ack_time'] = ack[0] if ack else None
         request['ack_duration'] = ack[1] if ack else None
@@ -139,6 +164,13 @@ def join(requests, consumes, acks):
         request['delete_ms'] = diff(ack_time, consume_end)
         request['lifetime_ms'] = diff(ack_time, arrive)
         request['response_ms'] = diff(consume_end, arrive)
+        notify_start = request['notify']['notify_start_time'] if request['notify'] else None
+        notify_end = request['notify']['notify_end_time'] if request['notify'] else None
+        # SSE 스레드가 컨슈머의 측정 종료(⑥)보다 먼저 작업을 꺼내면 음수가 될 수 있어 0으로 본다
+        notify_wait = diff(notify_start, consume_end)
+        request['notify_wait_ms'] = None if notify_wait is None else max(notify_wait, 0)
+        request['notify_send_ms'] = diff(notify_end, notify_start)
+        request['notify_response_ms'] = diff(notify_end, arrive)
     return by_request_id
 
 
@@ -151,8 +183,8 @@ def dash(value):
 
 
 HEADER = ['request_seq', 'request_id', 'message_id', 'auction_id', '결과',
-          '①도착', '②발행완료', '④처리시작', '⑤락획득', '⑥처리완료', '⑦삭제완료',
-          '발행ms', '큐대기ms', '처리ms', '삭제ms', '메시지수명ms', '사용자응답ms']
+          '①도착', '②발행완료', '④처리시작', '⑤락획득', '⑥처리완료', '⑦삭제완료', '⑨알림완료',
+          '발행ms', '큐대기ms', '처리ms', '삭제ms', '메시지수명ms', '사용자응답ms', '알림대기ms', '알림전송ms', '알림까지ms']
 
 
 def row(request):
@@ -169,6 +201,7 @@ def row(request):
         kst(consume.get('lock_acquire_time')),
         kst(consume.get('consume_end_time')),
         kst(request['ack_time']),
+        kst(request['notify']['notify_end_time'] if request['notify'] else None),
         *[dash(request[key]) for _, key in SPANS],
     ]
 
@@ -204,13 +237,14 @@ def span_summary(requests):
 
 
 if __name__ == '__main__':
-    requests, consumes, acks = extract_latest_run()
+    requests, consumes, acks, notifies = extract_latest_run()
     requests.sort(key=lambda r: r['request_seq'])
-    by_request_id = join(requests, consumes, acks)
+    by_request_id = join(requests, consumes, acks, notifies)
 
     accepted = [r for r in requests if r['status'] == 202]
     missing_consume = sum(1 for r in accepted if not r['consume'])
     missing_ack = sum(1 for r in accepted if r['consume'] and r['ack_time'] is None)
+    missing_notify = sum(1 for r in accepted if r['consume'] and r['consume']['result'] in PROCESSED and not r['notify'])
     redelivered = sum(1 for lines in by_request_id.values() if len(lines) > 1)
     results = defaultdict(int)
     for request in accepted:
@@ -220,6 +254,7 @@ if __name__ == '__main__':
     summary = [
         f"요청 {len(requests):,}건 · 202 접수 {len(accepted):,}건 · 결과별 {dict(sorted(results.items()))}",
         f"처리 로그 없음 {missing_consume:,}건 · 삭제 로그 없음 {missing_ack:,}건 · 두 번 이상 전달 {redelivered:,}건 (모두 0이어야 함)",
+        f"알림 로그 없음 {missing_notify:,}건 (SSE 대기열이 넘쳐 버린 알림, 0이어야 함)",
         '',
         *span_summary(accepted),
     ]
