@@ -31,6 +31,8 @@ public class BidService {
     public BidResponse submit(Long auctionId, Long bidderId, BidRequest request) {
         BigDecimal bidAmount = request.bidAmount();
 
+        // 큐(MessageGroupId)가 경매별 순서를 보장해도 락은 유지한다.
+        // 마감 스케줄러가 같은 경매 행을 바꾸고, visibility timeout이 지나 재전달되면 같은 경매 메시지가 동시에 처리될 수 있다.
         Auction auction = auctionRepository.findByIdWithLock(auctionId).orElseThrow(() -> new BusinessException(
             CommonErrorCode.NOT_FOUND,
             CommonErrorCode.NOT_FOUND.formatted("경매")
