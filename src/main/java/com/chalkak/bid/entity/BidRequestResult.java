@@ -6,20 +6,24 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "bid_requests")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class BidRequestResult extends BaseEntity {
+public class BidRequestResult extends BaseEntity implements Persistable<UUID> {
 
     @Id
     UUID requestId;
@@ -43,6 +47,10 @@ public class BidRequestResult extends BaseEntity {
     // 성공해서 저장된 bids.id, 거절이면 null
     Long bidId;
 
+    @Transient
+    @Getter(AccessLevel.NONE)
+    boolean newEntity = true;
+
     private BidRequestResult(UUID requestId, Long auctionId, Long bidderId, BigDecimal bidAmount,
         BidRequestStatus status, String errorCode, Long bidId) {
         this.requestId = requestId;
@@ -61,5 +69,21 @@ public class BidRequestResult extends BaseEntity {
     public static BidRequestResult rejected(UUID requestId, Long auctionId, Long bidderId, BigDecimal bidAmount, String errorCode) {
         return new BidRequestResult(requestId, auctionId, bidderId, bidAmount, BidRequestStatus.REJECTED, errorCode,
             null);
+    }
+
+    @Override
+    public UUID getId() {
+        return requestId;
+    }
+
+    @Override
+    public boolean isNew() {
+        return newEntity;
+    }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        newEntity = false;
     }
 }
