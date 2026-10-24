@@ -1,6 +1,7 @@
 package com.chalkak.bid.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -49,6 +50,8 @@ class BidControllerTest {
 
     private static final String OWNER_EMAIL = "owner@chalkak.com";
     private static final String BIDDER_EMAIL = "bidder@chalkak.com";
+    private static final String OTHER_BIDDER_EMAIL = "other@chalkak.com";
+    private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
     @Autowired
     private MockMvc mockMvc;
@@ -84,6 +87,7 @@ class BidControllerTest {
         MockHttpSession session = login(BIDDER_EMAIL);
 
         MvcResult result = mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
                 .session(session)
@@ -108,6 +112,7 @@ class BidControllerTest {
         Auction auction = createAuction(owner);
 
         mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
                 .with(csrf()))
@@ -122,6 +127,7 @@ class BidControllerTest {
         MockHttpSession session = login(BIDDER_EMAIL);
 
         mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(0))))
                 .session(session)
@@ -137,11 +143,86 @@ class BidControllerTest {
         MockHttpSession session = login(BIDDER_EMAIL);
 
         mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000.5))))
                 .session(session)
                 .with(csrf()))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 같은_멱등키로_다시_보내면_같은_요청_ID로_발행한다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+        UUID idempotencyKey = UUID.randomUUID();
+
+        UUID firstRequestId = bid(session, auction.getId(), idempotencyKey);
+        UUID retryRequestId = bid(session, auction.getId(), idempotencyKey);
+
+        assertThat(retryRequestId).isEqualTo(firstRequestId);
+        ArgumentCaptor<BidMessage> captor = ArgumentCaptor.forClass(BidMessage.class);
+        verify(bidMessageProducer, times(2)).send(captor.capture());
+        assertThat(captor.getAllValues()).extracting(BidMessage::requestId).containsOnly(firstRequestId);
+    }
+
+    @Test
+    void 다른_사용자가_같은_멱등키를_보내면_요청_ID가_다르다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        registerUser(OTHER_BIDDER_EMAIL);
+        UUID idempotencyKey = UUID.randomUUID();
+
+        UUID bidderRequestId = bid(login(BIDDER_EMAIL), auction.getId(), idempotencyKey);
+        UUID otherBidderRequestId = bid(login(OTHER_BIDDER_EMAIL), auction.getId(), idempotencyKey);
+
+        assertThat(otherBidderRequestId).isNotEqualTo(bidderRequestId);
+    }
+
+    @Test
+    void 멱등키_헤더가_없으면_400을_응답한다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 멱등키가_UUID_형식이_아니면_400을_응답한다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, "not-a-uuid")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isBadRequest());
+    }
+
+    private UUID bid(MockHttpSession session, Long auctionId, UUID idempotencyKey) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auctionId)
+                .header(IDEMPOTENCY_KEY, idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isAccepted())
+            .andReturn();
+        return UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.requestId"));
     }
 
     private User registerUser(String email) {
@@ -156,7 +237,10 @@ class BidControllerTest {
     }
 
     private String phone(String email) {
-        return email.equals(OWNER_EMAIL) ? "010-1111-1111" : "010-2222-2222";
+        if (email.equals(OWNER_EMAIL)) {
+            return "010-1111-1111";
+        }
+        return email.equals(BIDDER_EMAIL) ? "010-2222-2222" : "010-3333-3333";
     }
 
     private MockHttpSession login(String email) throws Exception {

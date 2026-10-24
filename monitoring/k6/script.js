@@ -165,10 +165,13 @@ function errorCode(res) {
 }
 
 function bid(session, auctionId, amount) {
+  const params = authParams(session);
+  // 재시도하지 않으므로 입찰마다 새 키를 쓴다. 동기 서버는 이 헤더를 읽지 않는다
+  params.headers['Idempotency-Key'] = crypto.randomUUID();
   const res = http.post(
     `${BASE_URL}/api/v1/auctions/${auctionId}/bids`,
     JSON.stringify({bidAmount: amount}),
-    Object.assign(authParams(session), {timeout: '10s', tags: {api: 'bid'}}),
+    Object.assign(params, {timeout: '10s', tags: {api: 'bid'}}),
   );
 
   if (res.status === (BID_MODE === 'sync' ? 201 : 202)) {
