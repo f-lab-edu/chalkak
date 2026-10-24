@@ -12,6 +12,7 @@ import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.bid.queue.BidMessageProducer;
 import com.chalkak.bid.repository.BidRequestResultRepository;
 import com.chalkak.common.exception.BusinessException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,10 +32,14 @@ public class BidRequestService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public UUID request(Long auctionId, Long bidderId, BidRequest bidRequest) {
-        UUID requestId = UUID.randomUUID();
+    public UUID request(Long auctionId, Long bidderId, UUID idempotencyKey, BidRequest bidRequest) {
+        UUID requestId = generateRequestId(bidderId, idempotencyKey);
         producer.send(new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount()));
         return requestId;
+    }
+
+    private UUID generateRequestId(Long bidderId, UUID idempotencyKey) {
+        return UUID.nameUUIDFromBytes((bidderId + ":" + idempotencyKey).getBytes(StandardCharsets.UTF_8));
     }
 
     @Transactional(readOnly = true)

@@ -18,7 +18,7 @@ public class BidMessageProducer {
     sqsTemplate.send(to -> to
         .queue(bidQueue)
         .payload(message)
-        .messageGroupId(message.auctionId().toString()));
-
+        .messageGroupId(message.auctionId().toString())
+        .messageDeduplicationId(message.requestId().toString()));
   }
 }
