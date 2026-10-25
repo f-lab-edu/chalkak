@@ -215,3 +215,6 @@ monitoring/k6/__pycache__/
 # JFR 녹화 파일
 monitoring/jfr/
 # End of https://www.toptal.com/developers/gitignore/api/macos,gradle,java,intellij
+
+# Prometheus 데이터 백업 (용량이 커서 커밋하지 않음)
+monitoring/prometheus-backup/
