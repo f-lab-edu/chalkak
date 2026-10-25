@@ -11,6 +11,10 @@ services:
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
       SQS_ENDPOINT: http://localstack:4566
+      # 기본값은 라이브러리 기본값과 같다. .env에서 바꾸면 이미지 빌드 없이 컨테이너만 다시 띄운다
+      SPRING_CLOUD_AWS_SQS_LISTENER_MAXCONCURRENTMESSAGES: ${SQS_MAX_CONCURRENT_MESSAGES:-10}
+      SPRING_CLOUD_AWS_SQS_LISTENER_MAXMESSAGESPERPOLL: ${SQS_MAX_MESSAGES_PER_POLL:-10}
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-10}
     volumes:
       - ./monitoring/opentelemetry-javaagent.jar:/otel/opentelemetry-javaagent.jar
     container_name: chalkak-application
