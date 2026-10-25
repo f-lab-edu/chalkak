@@ -8,8 +8,12 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
 request_seq 순으로 정렬했을 때 lock_seq가 계속 커지면 도착 순서대로 락을 얻은 것이고,
 앞서 도착한 요청보다 lock_seq가 작은 줄은 먼저 온 요청을 추월해 락을 얻은 것이다.
 
+같은 금액 역전 폭은 거절된 요청이 성공한 요청보다 서버에 몇 ms 먼저 도착했는지(request_time 차이)다.
+폭이 클수록 한참 먼저 온 요청이 진 것이다. request_time은 ms 단위라 같은 ms에 도착한 역전은 0ms로 나온다.
+
 실행:
   python3 monitoring/k6/sync_analyze_bid_order.py
+  python3 monitoring/k6/sync_analyze_bid_order.py <저장해 둔 bid_request_*.log>  (컨테이너 대신 파일을 읽고, 결과는 그 파일 옆에 만든다)
 
 실행 사이에 10초 이상 입찰 요청이 없으면 다른 실행으로 구분하므로, k6를 연달아 돌릴 때는 10초 이상 간격을 둔다.
 추출한 줄 수가 k6의 bid_accepted + bid_rejected_low + bid_timeout + bid_unexpected와 같은지 확인한다.
@@ -56,12 +60,36 @@ def dash(value):
     return '-' if value is None else value
 
 
-def extract_latest_run():
-    """컨테이너 로그에서 가장 최근 실행분의 BID_REQUEST만 고른다"""
+def percentile(sorted_values, p):
+    # k6와 같은 방식(선형 보간)
+    if not sorted_values:
+        return None
+    k = (len(sorted_values) - 1) * p / 100
+    low = int(k)
+    high = min(low + 1, len(sorted_values) - 1)
+    return round(sorted_values[low] + (sorted_values[high] - sorted_values[low]) * (k - low), 1)
+
+
+def gap_summary(gaps):
+    if not gaps:
+        return '-'
+    values = sorted(gaps)
+    return f"max {values[-1]}ms · p99 {percentile(values, 99)}ms · p50 {percentile(values, 50)}ms"
+
+
+def read_lines(path):
+    if path:
+        with open(path, encoding='utf-8') as f:
+            return f.read().splitlines()
     result = subprocess.run(['docker', 'logs', CONTAINER], capture_output=True, text=True, check=True)
-    requests = [parse(line) for line in (result.stdout + result.stderr).splitlines() if 'BID_REQUEST' in line]
+    return (result.stdout + result.stderr).splitlines()
+
+
+def extract_latest_run(path):
+    """컨테이너 로그(또는 저장해 둔 파일)에서 가장 최근 실행분의 BID_REQUEST만 고른다"""
+    requests = [parse(line) for line in read_lines(path) if 'BID_REQUEST' in line]
     if not requests:
-        sys.exit(f"{CONTAINER} 로그에 BID_REQUEST가 없습니다.")
+        sys.exit(f"{path or CONTAINER} 로그에 BID_REQUEST가 없습니다.")
 
     # 같은 ms에 도착한 요청끼리는 request_seq 순서가 뒤바뀔 수 있으므로 실행 경계는 시간 공백으로만 판단한다
     requests.sort(key=lambda r: r['request_time'])
@@ -85,12 +113,13 @@ def mark_overtakers(requests):
 
 def mark_reversed(requests):
     """같은 금액끼리 경쟁해서, 먼저 도착한 요청은 거절되고(reversed_loser) 늦게 도착한 요청이 성공한(reversed_winner) 경우를 표시하고
-    거절된 요청 수를 반환한다"""
+    거절된 요청마다 성공한 요청보다 몇 ms 먼저 도착했는지(reversal_gap)를 모아 반환한다"""
     winners = {(r['auction_id'], r['request_price']): r for r in requests if r['status'] == 201}
     for request in requests:
         request['reversed_loser'] = request['reversed_winner'] = False
+        request['reversal_gap'] = None
 
-    count = 0
+    gaps = []
     for request in requests:
         winner = winners.get((request['auction_id'], request['request_price']))
         rejected_by_same_price = (request['status'] == 400 and request['current_price'] is not None
@@ -98,8 +127,10 @@ def mark_reversed(requests):
         if winner and rejected_by_same_price and request['request_seq'] < winner['request_seq']:
             request['reversed_loser'] = True
             winner['reversed_winner'] = True
-            count += 1
-    return count
+            # request_seq와 request_time은 같은 ms 안에서 순서가 어긋날 수 있어 음수는 0으로 본다
+            request['reversal_gap'] = max(0, winner['request_time'] - request['request_time'])
+            gaps.append(request['reversal_gap'])
+    return gaps
 
 
 def note(request):
@@ -107,7 +138,7 @@ def note(request):
     if request['overtaker']:
         notes.append('← 추월')
     if request['reversed_loser']:
-        notes.append('같은 금액 역전: 먼저 왔는데 거절')
+        notes.append(f"같은 금액 역전: {request['reversal_gap']}ms 먼저 왔는데 거절")
     if request['reversed_winner']:
         notes.append('같은 금액 역전: 늦게 왔는데 성공')
     return '  '.join(notes)
@@ -129,7 +160,7 @@ def write_sorted(path, requests):
                     f"{dash(r['current_price']):>8}  {r['status']:>4}  {note(r)}\n")
 
 
-def write_html(path, requests, overtakers, reversed_count):
+def write_html(path, requests, overtakers, gaps):
     rows = []
     for r in requests:
         wait = None if r['lock_acquire_time'] is None else r['lock_acquire_time'] - r['request_time']
@@ -154,7 +185,7 @@ def write_html(path, requests, overtakers, reversed_count):
   .loser {{ background: #ffcdd2; }}
   .winner {{ background: #c8e6c9; }}
 </style></head><body>
-<p>요청 {len(requests):,}건 · 추월 {overtakers:,}건 ({overtakers / len(requests) * 100:.1f}%) · 같은 금액 역전 {reversed_count:,}건</p>
+<p>요청 {len(requests):,}건 · 추월 {overtakers:,}건 ({overtakers / len(requests) * 100:.1f}%) · 같은 금액 역전 {len(gaps):,}건 (역전 폭 {gap_summary(gaps)})</p>
 <p class="legend"><span class="overtaker">추월: 먼저 도착한 요청보다 락을 먼저 얻음</span>
 <span class="loser">역전: 먼저 왔는데 거절</span><span class="winner">역전: 늦게 왔는데 성공</span></p>
 <table><thead><tr><th>request_seq</th><th>lock_seq</th><th>도착(KST)</th><th>락획득(KST)</th><th>대기ms</th>
@@ -165,21 +196,24 @@ def write_html(path, requests, overtakers, reversed_count):
 
 
 if __name__ == '__main__':
-    requests = sorted(extract_latest_run(), key=lambda r: r['request_seq'])
+    log_path = sys.argv[1] if len(sys.argv) > 1 else None
+    output_dir = os.path.dirname(os.path.abspath(log_path)) if log_path else OUTPUT_DIR
+    requests = sorted(extract_latest_run(log_path), key=lambda r: r['request_seq'])
     mark_overtakers(requests)
-    reversed_count = mark_reversed(requests)
+    gaps = mark_reversed(requests)
 
     started_at = datetime.fromtimestamp(min(r['request_time'] for r in requests) / 1000, KST).strftime('%Y%m%d_%H%M%S')
-    raw_path = os.path.join(OUTPUT_DIR, f"bid_request_{started_at}.log")
-    sorted_path = os.path.join(OUTPUT_DIR, f"bid_request_{started_at}_sorted.log")
-    html_path = os.path.join(OUTPUT_DIR, f"bid_request_{started_at}_sorted.html")
+    raw_path = os.path.join(output_dir, f"bid_request_{started_at}.log")
+    sorted_path = os.path.join(output_dir, f"bid_request_{started_at}_sorted.log")
+    html_path = os.path.join(output_dir, f"bid_request_{started_at}_sorted.html")
     overtakers = sum(r['overtaker'] for r in requests)
     write_raw(raw_path, requests)
     write_sorted(sorted_path, requests)
-    write_html(html_path, requests, overtakers, reversed_count)
+    write_html(html_path, requests, overtakers, gaps)
 
     print(f"추출            {len(requests):,}줄 → {raw_path}")
     print(f"정렬            {sorted_path}")
     print(f"정렬(색 표시)   {html_path}")
     print(f"추월            {overtakers:,}건 ({overtakers / len(requests) * 100:.1f}%)  먼저 도착한 요청보다 락을 먼저 얻은 요청")
-    print(f"같은 금액 역전  {reversed_count:,}건  먼저 도착했는데 거절되고, 늦게 도착한 요청이 성공한 경우")
+    print(f"같은 금액 역전  {len(gaps):,}건  먼저 도착했는데 거절되고, 늦게 도착한 요청이 성공한 경우")
+    print(f"역전 폭         {gap_summary(gaps)}  거절된 요청이 성공한 요청보다 먼저 도착한 시간")

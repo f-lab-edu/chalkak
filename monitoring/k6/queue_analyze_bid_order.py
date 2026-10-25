@@ -21,6 +21,8 @@ k6를 돌린 뒤 실행하면 chalkak-application 컨테이너 로그에서 가�
      같은 금액끼리 경쟁해서 순서가 앞선 요청이 거절되고 뒤인 요청이 성공한 경우. 거절된 요청 수로 센다.
      ① 큐 이후 (보장 대상, 0이어야 한다) : sqs_seq 기준. 먼저 접수됐는데 거절된 요청
      ② 큐 이전 (허용, 개수만 기록)       : request_seq 기준. 먼저 도착했는데 거절된 요청. ①이 0이면 ②의 큐 이전 역전 때문에 생긴 것이다.
+     ② 역전 폭 : 거절된 요청이 성공한 요청보다 서버에 몇 ms 먼저 도착했는지(request_time 차이). 동기 방식의 역전 폭과 비교한다.
+                 request_time은 ms 단위라 같은 ms에 도착한 역전은 0ms로 나온다.
 
 실행:
   python3 monitoring/k6/queue_analyze_bid_order.py
@@ -164,15 +166,16 @@ def mark_before_queue_reversal(requests):
 
 def mark_same_price_reversal(requests, order, flag):
     """같은 금액끼리 경쟁해서, order 기준으로 앞선 요청은 거절되고({flag}_loser) 뒤인 요청이 성공한({flag}_winner) 경우를 표시하고
-    거절된 요청 수를 반환한다"""
+    거절된 요청마다 성공한 요청보다 몇 ms 먼저 도착했는지({flag}_gap)를 모아 반환한다"""
     winners = {}
     for request in requests:
         request[f'{flag}_loser'] = request[f'{flag}_winner'] = False
+        request[f'{flag}_gap'] = None
         consume = request['consume']
         if consume and consume['result'] == 'ACCEPTED':
             winners[(request['auction_id'], consume['request_price'])] = request
 
-    count = 0
+    gaps = []
     for request in requests:
         consume = request['consume']
         if not consume or consume['result'] != 'REJECTED':
@@ -182,8 +185,27 @@ def mark_same_price_reversal(requests, order, flag):
         if winner and rejected_by_same_price and order(request) < order(winner):
             request[f'{flag}_loser'] = True
             winner[f'{flag}_winner'] = True
-            count += 1
-    return count
+            # request_seq와 request_time은 같은 ms 안에서 순서가 어긋날 수 있어 음수는 0으로 본다
+            request[f'{flag}_gap'] = max(0, winner['request_time'] - request['request_time'])
+            gaps.append(request[f'{flag}_gap'])
+    return gaps
+
+
+def percentile(sorted_values, p):
+    # k6와 같은 방식(선형 보간)
+    if not sorted_values:
+        return None
+    k = (len(sorted_values) - 1) * p / 100
+    low = int(k)
+    high = min(low + 1, len(sorted_values) - 1)
+    return round(sorted_values[low] + (sorted_values[high] - sorted_values[low]) * (k - low), 1)
+
+
+def gap_summary(gaps):
+    if not gaps:
+        return '-'
+    values = sorted(gaps)
+    return f"max {values[-1]}ms · p99 {percentile(values, 99)}ms · p50 {percentile(values, 50)}ms"
 
 
 def sqs_ranks(consumes):
@@ -230,7 +252,7 @@ def note(request):
     if request['after_same_price_winner']:
         notes.append('① 같은 금액 역전: 늦게 접수됐는데 성공')
     if request['before_same_price_loser']:
-        notes.append('② 같은 금액 역전: 먼저 도착했는데 거절')
+        notes.append(f"② 같은 금액 역전: {request['before_same_price_gap']}ms 먼저 도착했는데 거절")
     if request['before_same_price_winner']:
         notes.append('② 같은 금액 역전: 늦게 도착했는데 성공')
     if request['delivery_count'] > 1:
@@ -330,8 +352,9 @@ if __name__ == '__main__':
         f"처리 결과 없음 {missing:,}건 (0이어야 함)",
         f"① 큐 이후 역전 {after_reversal:,}건 (0이어야 함)",
         f"② 큐 이전 역전 {before_reversal:,}건 ({percent(before_reversal, len(processed))})",
-        f"① 같은 금액 역전 {after_same_price:,}건 (0이어야 함, 먼저 접수됐는데 거절된 요청)",
-        f"② 같은 금액 역전 {before_same_price:,}건 (먼저 도착했는데 거절된 요청)",
+        f"① 같은 금액 역전 {len(after_same_price):,}건 (0이어야 함, 먼저 접수됐는데 거절된 요청)",
+        f"② 같은 금액 역전 {len(before_same_price):,}건 (먼저 도착했는데 거절된 요청)",
+        f"② 역전 폭 {gap_summary(before_same_price)} (거절된 요청이 성공한 요청보다 먼저 도착한 시간)",
     ]
 
     started_at = datetime.fromtimestamp(min(r['request_time'] for r in requests) / 1000, KST).strftime('%Y%m%d_%H%M%S')
