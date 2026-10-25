@@ -25,18 +25,31 @@ const HOT_AUCTION_ID = 22046;
 const START_PRICE = 10000;
 const BID_STEP = 100;
 
+// hot: 인기 경매 하나에만 입찰한다
+// spread: 인기 경매에 RATE만큼 입찰하면서, 한산한 경매 4개에도 경매마다 초당 COLD_RATE건씩 입찰한다
+const AUCTION_MODE = __ENV.AUCTION_MODE || 'hot';
+if (AUCTION_MODE !== 'hot' && AUCTION_MODE !== 'spread') {
+  throw new Error(`알 수 없는 AUCTION_MODE: ${AUCTION_MODE} (hot | spread)`);
+}
+// 인기 경매와 같은 조건: 입찰 기록 없음, 시작가 10,000원, 마감 2026-10-30 23:59:59
+const COLD_AUCTION_IDS = [175650, 192002, 203490, 220628];
+const COLD_RATE = 20;
+const COLD_MAX_VUS = 25;
+const TARGET_AUCTION_IDS = AUCTION_MODE === 'spread' ? [HOT_AUCTION_ID, ...COLD_AUCTION_IDS] : [HOT_AUCTION_ID];
+
 // test001 ~ test005 계정 사용 (비밀번호: test{번호}123!, 포인트 5천만 원씩)
 const BIDDER_COUNT = 5;
 const INITIAL_POINT = 50000000;
 
-// 실행: k6 run -e BID_MODE=sync|queue -e RATE=200 -e PRE_VUS=50 -e MAX_VUS=2500 -e LIST_RATE=100 -e LIST_PRE_VUS=100 -e LIST_MAX_VUS=500 script.js
+// 실행: k6 run -e BID_MODE=sync|queue -e AUCTION_MODE=hot|spread -e RATE=200 -e PRE_VUS=50 -e MAX_VUS=2500 -e LIST_RATE=100 -e LIST_PRE_VUS=100 -e LIST_MAX_VUS=500 script.js
 // 입찰 1번 = 현재가 조회 + 입찰 2요청이라 초당 HTTP 요청 수는 RATE의 2배
 const BID_RATE = intEnv('RATE', 50);
 const DURATION = '30s';
 // 필요한 VU ≈ RATE × 반복 1번에 걸리는 시간(초). 서버가 느려지면 필요한 VU가 늘고, MAX_VUS를 넘으면 k6가 dropped_iterations로 기록한다
 const BID_PRE_VUS = intEnv('PRE_VUS', 50);
 // k6 컨테이너(메모리 1GB)는 VU 3000개 정도에서 메모리를 80% 쓰므로, 목록 조회 LIST_MAX_VUS(500)와 합쳐 3000 안에 들게 둔다
-const BID_MAX_VUS = intEnv('MAX_VUS', 2500, BID_PRE_VUS);
+// spread에서는 한산한 경매 몫(COLD_MAX_VUS × 4)만큼 줄인다
+const BID_MAX_VUS = intEnv('MAX_VUS', AUCTION_MODE === 'spread' ? 2400 : 2500, BID_PRE_VUS);
 // 입찰과 함께 초당 시작하는 경매 목록 조회 수
 const LIST_RATE = intEnv('LIST_RATE', 100);
 // 시나리오끼리 VU를 나눠 쓰지 않으므로 입찰의 MAX_VUS와 따로 둔다
@@ -82,6 +95,7 @@ export const options = {
       preAllocatedVUs: LIST_PRE_VUS,
       maxVUs: LIST_MAX_VUS,
     },
+    ...coldScenarios(),
   },
   thresholds: {
     // 최대 부하까지 올려서 타임아웃이 나더라도 정합성이 지켜지는지 보는 것이 목적이라 타임아웃은 실패 조건에서 뺀다
@@ -95,9 +109,31 @@ export const options = {
     'http_req_duration{api:bid}': [],
     'http_req_duration{api:verify}': [],
     'http_req_duration{api:list}': [],
+    // spread: 인기 경매가 밀릴 때 한산한 경매도 같이 느려지는지 보려고 나눠서 출력한다
+    ...(AUCTION_MODE === 'spread' ? {
+      'http_req_duration{api:bid,auction:hot}': [],
+      'http_req_duration{api:bid,auction:cold}': [],
+    } : {}),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
+
+// 한산한 경매마다 시나리오를 따로 둬서 경매마다 정확히 초당 COLD_RATE건씩 입찰한다
+function coldScenarios() {
+  if (AUCTION_MODE !== 'spread') {
+    return {};
+  }
+  return Object.fromEntries(COLD_AUCTION_IDS.map((id) => [`cold_${id}`, {
+    executor: 'constant-arrival-rate',
+    exec: 'bidColdAuction',
+    env: {AUCTION_ID: String(id)},
+    rate: COLD_RATE,
+    timeUnit: '1s',
+    duration: DURATION,
+    preAllocatedVUs: 5,
+    maxVUs: COLD_MAX_VUS,
+  }]));
+}
 
 function testAccount(index) {
   const number = String(index + 1).padStart(3, '0');
@@ -138,8 +174,8 @@ function authParams(session) {
   };
 }
 
-function fetchCurrentPrice(auctionId, api) {
-  const res = http.get(`${BASE_URL}/api/v1/auctions/${auctionId}`, {tags: {api}});
+function fetchCurrentPrice(auctionId, api, kind = 'hot') {
+  const res = http.get(`${BASE_URL}/api/v1/auctions/${auctionId}`, {tags: {api, auction: kind}});
   if (!check(res, {'경매 조회 200': (r) => r.status === 200})) {
     return null;
   }
@@ -164,14 +200,14 @@ function errorCode(res) {
   }
 }
 
-function bid(session, auctionId, amount) {
+function bid(session, auctionId, amount, kind) {
   const params = authParams(session);
   // 재시도하지 않으므로 입찰마다 새 키를 쓴다. 동기 서버는 이 헤더를 읽지 않는다
   params.headers['Idempotency-Key'] = crypto.randomUUID();
   const res = http.post(
     `${BASE_URL}/api/v1/auctions/${auctionId}/bids`,
     JSON.stringify({bidAmount: amount}),
-    Object.assign(params, {timeout: '10s', tags: {api: 'bid'}}),
+    Object.assign(params, {timeout: '10s', tags: {api: 'bid', auction: kind}}),
   );
 
   if (res.status === (BID_MODE === 'sync' ? 201 : 202)) {
@@ -199,10 +235,12 @@ export function setup() {
 
   // 이전 테스트의 입찰이 남아 있으면 기대값과 불변식 검증이 모두 틀어지므로, 리셋 여부를 먼저 확인한다
   if (!WARMUP) {
-    const currentPrice = fetchCurrentPrice(HOT_AUCTION_ID, 'verify');
-    if (currentPrice !== START_PRICE) {
-      exec.test.abort(`경매 ${HOT_AUCTION_ID} 현재가가 ${currentPrice}원입니다. reset_bid_test.sql을 먼저 실행하세요.`);
-    }
+    TARGET_AUCTION_IDS.forEach((auctionId) => {
+      const currentPrice = fetchCurrentPrice(auctionId, 'verify');
+      if (currentPrice !== START_PRICE) {
+        exec.test.abort(`경매 ${auctionId} 현재가가 ${currentPrice}원입니다. reset_bid_test.sql을 먼저 실행하세요.`);
+      }
+    });
   }
 
   // 카운터가 한 번도 기록되지 않으면 threshold 판정에서 빠질 수 있어서 0으로 먼저 기록해 둔다
@@ -226,12 +264,20 @@ export function listAuctions() {
 // 사용자처럼 현재가를 보고 한 단계 높여 입찰한다
 // 여러 VU가 같은 현재가를 읽으므로 같은 금액끼리 경쟁하고, 먼저 처리된 한 건만 성공한다
 export function bidAboveCurrentPrice(sessions) {
+  bidOn(sessions, HOT_AUCTION_ID, 'hot');
+}
+
+export function bidColdAuction(sessions) {
+  bidOn(sessions, Number(__ENV.AUCTION_ID), 'cold');
+}
+
+function bidOn(sessions, auctionId, kind) {
   const session = sessions[Math.floor(Math.random() * BIDDER_COUNT)];
-  const currentPrice = fetchCurrentPrice(HOT_AUCTION_ID, 'read');
+  const currentPrice = fetchCurrentPrice(auctionId, 'read', kind);
   if (currentPrice === null) {
     return;
   }
-  bid(session, HOT_AUCTION_ID, currentPrice + BID_STEP);
+  bid(session, auctionId, currentPrice + BID_STEP, kind);
 }
 
 // 메시지는 컨슈머가 처리를 마친 뒤 삭제되므로, 대기(Messages)와 처리 중(NotVisible)이 모두 0이면 처리가 끝난 것이다
@@ -276,24 +322,26 @@ export function teardown(sessions) {
     return;
   }
 
-  const currentPrice = fetchCurrentPrice(HOT_AUCTION_ID, 'verify');
+  const currentPrices = TARGET_AUCTION_IDS.map((auctionId) => fetchCurrentPrice(auctionId, 'verify'));
   const points = sessions.map(fetchPoint);
 
-  console.log(`auction=${HOT_AUCTION_ID} currentPrice=${currentPrice}`);
+  TARGET_AUCTION_IDS.forEach((auctionId, i) => console.log(`auction=${auctionId} currentPrice=${currentPrices[i]}`));
   points.forEach((p) => console.log(`${p.email} available=${p.available} locked=${p.locked}`));
 
-  verifyConsistency(currentPrice, points);
+  verifyConsistency(currentPrices, points);
 }
 
 // 동시 실행이라 누가 이길지 알 수 없으므로, 결과와 상관없이 항상 성립해야 하는 관계로 검증한다
-function verifyConsistency(currentPrice, points) {
+// 경매가 여러 개면 한 입찰자가 여러 경매의 최고 입찰자일 수 있어서, 잠긴 포인트는 경매 현재가의 합과 비교한다
+function verifyConsistency(currentPrices, points) {
   const lockedSum = points.reduce((sum, p) => sum + p.locked, 0);
+  const priceSum = currentPrices.reduce((sum, price) => sum + price, 0);
   const holders = points.filter((p) => p.locked > 0);
 
   check(null, {
-    '경매 현재가 > 시작가': () => currentPrice > START_PRICE,
-    '입찰자 locked 합 = 경매 현재가': () => lockedSum === currentPrice,
-    '포인트가 잠긴 입찰자는 1명이고 locked = 경매 현재가': () => holders.length === 1 && holders[0].locked === currentPrice,
+    '경매마다 현재가 > 시작가': () => currentPrices.every((price) => price > START_PRICE),
+    '입찰자 locked 합 = 경매 현재가 합': () => lockedSum === priceSum,
+    '포인트가 잠긴 입찰자는 1명 이상, 경매 수 이하': () => holders.length >= 1 && holders.length <= currentPrices.length,
   });
 
   points.forEach((p) => {

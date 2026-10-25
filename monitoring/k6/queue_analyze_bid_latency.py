@@ -38,6 +38,8 @@ from datetime import datetime
 from queue_analyze_bid_order import CONTAINER, KST, OUTPUT_DIR, PROCESSED, RUN_GAP_MS, fields_of, kst, none_if_dash, to_int
 
 ACK_MARKER = 'Done acknowledging'
+# k6 script.js의 HOT_AUCTION_ID. 나머지 경매는 spread 모드의 한산한 경매다
+HOT_AUCTION_ID = 22046
 UUID_PATTERN = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 ACK_DURATION_PATTERN = re.compile(r' in (\d+)ms')
 
@@ -227,8 +229,8 @@ def percentile(sorted_values, p):
     return round(sorted_values[low] + (sorted_values[high] - sorted_values[low]) * (k - low), 1)
 
 
-def span_summary(requests):
-    lines = [f"{'구간':<12}{'건수':>8}{'p50':>10}{'p95':>10}{'p99':>10}{'max':>10}  (ms)"]
+def span_summary(requests, title='구간'):
+    lines = [f"{title:<12}{'건수':>8}{'p50':>10}{'p95':>10}{'p99':>10}{'max':>10}  (ms)"]
     for label, key in SPANS:
         values = sorted(r[key] for r in requests if r[key] is not None)
         stats = [percentile(values, p) for p in (50, 95, 99)] + [values[-1] if values else None]
@@ -258,6 +260,10 @@ if __name__ == '__main__':
         '',
         *span_summary(accepted),
     ]
+    # spread 모드: 인기 경매가 밀릴 때 한산한 경매도 같이 느려지는지 보려고 나눠서 출력한다
+    if any(r['auction_id'] != HOT_AUCTION_ID for r in accepted):
+        summary += ['', *span_summary([r for r in accepted if r['auction_id'] == HOT_AUCTION_ID], f'인기 경매 {HOT_AUCTION_ID}'),
+                    '', *span_summary([r for r in accepted if r['auction_id'] != HOT_AUCTION_ID], '한산한 경매')]
 
     started_at = datetime.fromtimestamp(min(r['request_time'] for r in requests) / 1000, KST).strftime('%Y%m%d_%H%M%S')
     path = os.path.join(OUTPUT_DIR, f"bid_latency_{started_at}.log")

@@ -82,6 +82,7 @@ services:
           memory: 1024M
     environment:
       BID_MODE: ${BID_MODE:-queue}
+      AUCTION_MODE: ${AUCTION_MODE:-hot}
       WARMUP: ${WARMUP:-false}
       RATE: ${RATE:-50}
       PRE_VUS: ${PRE_VUS:-50}
