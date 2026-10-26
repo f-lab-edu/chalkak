@@ -10,6 +10,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+      SQS_ENDPOINT: http://localstack:4566
+      # 기본값은 라이브러리 기본값과 같다. .env에서 바꾸면 이미지 빌드 없이 컨테이너만 다시 띄운다
+      SPRING_CLOUD_AWS_SQS_LISTENER_MAXCONCURRENTMESSAGES: ${SQS_MAX_CONCURRENT_MESSAGES:-10}
+      SPRING_CLOUD_AWS_SQS_LISTENER_MAXMESSAGESPERPOLL: ${SQS_MAX_MESSAGES_PER_POLL:-10}
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-10}
     volumes:
       - ./monitoring/opentelemetry-javaagent.jar:/otel/opentelemetry-javaagent.jar
     container_name: chalkak-application
@@ -28,6 +33,8 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
   prometheus:
     image: prom/prometheus:v3.14.0
@@ -73,6 +80,16 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1024M
+    environment:
+      BID_MODE: ${BID_MODE:-queue}
+      AUCTION_MODE: ${AUCTION_MODE:-hot}
+      WARMUP: ${WARMUP:-false}
+      RATE: ${RATE:-50}
+      PRE_VUS: ${PRE_VUS:-50}
+      MAX_VUS: ${MAX_VUS:-2500}
+      LIST_RATE: ${LIST_RATE:-100}
+      LIST_PRE_VUS: ${LIST_PRE_VUS:-100}
+      LIST_MAX_VUS: ${LIST_MAX_VUS:-500}
     volumes:
       - ./monitoring/k6/script.js:/script.js
     entrypoint: ["sh", "-c"]

@@ -11,6 +11,7 @@ import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.bid.controller.request.BidRequest;
 import com.chalkak.bid.repository.BidRepository;
 import com.chalkak.common.util.TimeUtils;
+import com.chalkak.point.entity.Point;
 import com.chalkak.point.repository.PointRepository;
 import com.chalkak.point.service.PointService;
 import com.chalkak.user.entity.User;
@@ -179,6 +180,21 @@ class BidConcurrencyTest {
         executor.shutdown();
 
         assertThat(exceptions).isEmpty();
+
+        assertThat(auctionRepository.findById(auctionA.getId()).orElseThrow().getCurrentPrice())
+            .isEqualByComparingTo(BigDecimal.valueOf(2_000));
+        assertThat(auctionRepository.findById(auctionB.getId()).orElseThrow().getCurrentPrice())
+            .isEqualByComparingTo(BigDecimal.valueOf(2_000));
+
+        // 각자 상대 경매의 최고 입찰자가 되므로, 이전 입찰 1,500원은 해제되고 새 입찰 2,000원만 잠겨 있어야 한다
+        assertPoint(u1.getId(), BigDecimal.valueOf(8_000), BigDecimal.valueOf(2_000));
+        assertPoint(u2.getId(), BigDecimal.valueOf(8_000), BigDecimal.valueOf(2_000));
+    }
+
+    private void assertPoint(Long userId, BigDecimal available, BigDecimal locked) {
+        Point point = pointRepository.findByUserId(userId).orElseThrow();
+        assertThat(point.getAvailableAmount()).isEqualByComparingTo(available);
+        assertThat(point.getLockedAmount()).isEqualByComparingTo(locked);
     }
 
     private String phone(int seed, int index) {

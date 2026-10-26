@@ -1,0 +1,25 @@
+-- 입찰 부하 테스트 전 초기화 스크립트
+-- hot 경매(22046), spread 모드의 한산한 경매 4개(175650, 192002, 203490, 220628)와 테스트 계정(test001~test100, user_id 2~101)의 포인트를 처음 상태로 되돌린다
+-- 큐에 이전 실행의 메시지가 남아 있으면 리셋 후에 처리되어 다시 입찰이 생기므로, 큐를 먼저 비운다
+--   docker exec chalkak-localstack awslocal sqs purge-queue --queue-url http://localhost:4566/000000000000/bid-queue.fifo
+-- 실행: docker exec -i chalkak-postgres psql -U chalkak -d chalkak -v ON_ERROR_STOP=1 < monitoring/k6/seed/reset_bid_test.sql
+
+BEGIN;
+
+DELETE FROM bid_requests WHERE auction_id IN (22046, 175650, 192002, 203490, 220628);
+DELETE FROM bids WHERE auction_id IN (22046, 175650, 192002, 203490, 220628);
+
+UPDATE auctions
+SET current_price      = start_price,
+    extended_closes_at = closes_at,
+    status             = 'IN_PROGRESS',
+    updated_at         = now()
+WHERE id IN (22046, 175650, 192002, 203490, 220628);
+
+UPDATE points
+SET available_amount = 50000000,
+    locked_amount    = 0,
+    updated_at       = now()
+WHERE user_id BETWEEN 2 AND 101;
+
+COMMIT;

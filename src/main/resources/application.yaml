@@ -16,3 +16,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+
+sqs:
+  queue:
+    bid: bid-queue.fifo
+
+sse:
+  heartbeat-interval: 30000
