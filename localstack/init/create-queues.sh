@@ -26,10 +26,9 @@ BID_DLQ_ARN=$(awslocal sqs get-queue-attributes \
 # FifoQueue: 같은 메시지 그룹(= 경매) 안에서는 보낸 순서대로, 한 번에 하나씩 처리된다
 # ContentBasedDeduplication: 중복 제거 ID를 안 주면 본문 해시로 대신한다 (프로듀서는 requestId를 직접 준다)
 # RedrivePolicy: 수신 횟수가 maxReceiveCount를 넘으면 SQS가 deadLetterTargetArn(DLQ)으로 자동으로 옮긴다
-#   앱이 실패 처리조차 못 했을 때(예: DB 장애)를 위한 안전망이라 앱의 상한보다 1 크게 둔다
 awslocal sqs create-queue --queue-name bid-queue.fifo --attributes "{
   \"FifoQueue\": \"true\",
   \"ContentBasedDeduplication\": \"true\",
   \"VisibilityTimeout\": \"${BID_QUEUE_VISIBILITY_TIMEOUT}\",
-  \"RedrivePolicy\": \"{\\\"deadLetterTargetArn\\\":\\\"${BID_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"$((BID_QUEUE_MAX_RECEIVE_COUNT + 1))\\\"}\"
+  \"RedrivePolicy\": \"{\\\"deadLetterTargetArn\\\":\\\"${BID_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"${BID_QUEUE_MAX_RECEIVE_COUNT}\\\"}\"
 }"
