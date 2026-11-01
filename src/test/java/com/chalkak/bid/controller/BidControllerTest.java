@@ -1,8 +1,6 @@
 package com.chalkak.bid.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,8 +15,10 @@ import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.auth.controller.request.AuthRequest;
 import com.chalkak.bid.controller.request.BidRequest;
 import com.chalkak.bid.queue.BidMessage;
-import com.chalkak.bid.queue.BidMessageProducer;
 import com.chalkak.common.util.TimeUtils;
+import com.chalkak.outbox.entity.Outbox;
+import com.chalkak.outbox.entity.OutboxStatus;
+import com.chalkak.outbox.repository.OutboxRepository;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
@@ -28,7 +28,6 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,7 +36,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,16 +70,22 @@ class BidControllerTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @MockitoBean
-    private BidMessageProducer bidMessageProducer;
+    @Autowired
+    private OutboxRepository outboxRepository;
 
     @AfterEach
     void clearContext() {
         SecurityContextHolder.clearContext();
     }
 
+    // 입찰 접수는 테스트 트랜잭션 밖에서 커밋되므로 롤백되지 않는다
+    @AfterTransaction
+    void cleanUpOutbox() {
+        outboxRepository.deleteAll();
+    }
+
     @Test
-    void 정상_입찰이면_202와_요청_ID를_응답하고_입찰_메시지를_발행한다() throws Exception {
+    void 정상_입찰이면_202와_요청_ID를_응답하고_아웃박스에_입찰_메시지를_저장한다() throws Exception {
         User owner = registerUser(OWNER_EMAIL);
         Auction auction = createAuction(owner);
         User bidder = registerUser(BIDDER_EMAIL);
@@ -97,13 +102,16 @@ class BidControllerTest {
             .andReturn();
 
         UUID requestId = UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.requestId"));
-        ArgumentCaptor<BidMessage> captor = ArgumentCaptor.forClass(BidMessage.class);
-        verify(bidMessageProducer).send(captor.capture());
-        BidMessage message = captor.getValue();
+        Outbox outbox = outboxRepository.findAll().get(0);
+        assertThat(outbox.getRequestId()).isEqualTo(requestId);
+        assertThat(outbox.getAuctionId()).isEqualTo(auction.getId());
+        assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PENDING);
+        BidMessage message = objectMapper.readValue(outbox.getPayload(), BidMessage.class);
         assertThat(message.requestId()).isEqualTo(requestId);
         assertThat(message.auctionId()).isEqualTo(auction.getId());
         assertThat(message.bidderId()).isEqualTo(bidder.getId());
         assertThat(message.bidAmount()).isEqualByComparingTo("15000");
+        assertThat(message.requestedAt()).isNotNull();
     }
 
     @Test
@@ -152,7 +160,7 @@ class BidControllerTest {
     }
 
     @Test
-    void 같은_멱등키로_다시_보내면_같은_요청_ID로_발행한다() throws Exception {
+    void 같은_멱등키로_다시_보내면_같은_요청_ID를_응답하고_한_번만_저장한다() throws Exception {
         User owner = registerUser(OWNER_EMAIL);
         Auction auction = createAuction(owner);
         registerUser(BIDDER_EMAIL);
@@ -163,9 +171,7 @@ class BidControllerTest {
         UUID retryRequestId = bid(session, auction.getId(), idempotencyKey);
 
         assertThat(retryRequestId).isEqualTo(firstRequestId);
-        ArgumentCaptor<BidMessage> captor = ArgumentCaptor.forClass(BidMessage.class);
-        verify(bidMessageProducer, times(2)).send(captor.capture());
-        assertThat(captor.getAllValues()).extracting(BidMessage::requestId).containsOnly(firstRequestId);
+        assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
     }
 
     @Test

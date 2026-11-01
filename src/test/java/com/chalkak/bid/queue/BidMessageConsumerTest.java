@@ -12,6 +12,7 @@ import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.bid.exception.BidErrorCode;
 import com.chalkak.bid.service.BidRequestService;
 import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.util.TimeUtils;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -154,6 +155,6 @@ class BidMessageConsumerTest {
     }
 
     private BidMessage createBid() {
-        return new BidMessage(UUID.randomUUID(), 1L, 1L, BigDecimal.valueOf(10_000));
+        return new BidMessage(UUID.randomUUID(), 1L, 1L, BigDecimal.valueOf(10_000), TimeUtils.now());
     }
 }
