@@ -11,7 +11,7 @@ import com.chalkak.bid.event.BidRejectedEvent;
 import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.bid.queue.BidMessageProducer;
 import com.chalkak.bid.repository.BidRequestResultRepository;
-import com.chalkak.common.exception.BusinessException;
+import com.chalkak.common.exception.ErrorCode;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -62,10 +62,10 @@ public class BidRequestService {
         eventPublisher.publishEvent(new BidAcceptedEvent(message.requestId(), message.auctionId(), message.bidderId(), status));
     }
 
-    public void reject(BidMessage message, BusinessException e) {
-        String errorCode = e.getErrorCode().getCode();
+    public void reject(BidMessage message, ErrorCode errorCode) {
+        String code = errorCode.getCode();
         bidRequestResultRepository.save(BidRequestResult.rejected(
-            message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), errorCode));
-        eventPublisher.publishEvent(new BidRejectedEvent(message.requestId(), message.auctionId(), message.bidderId(), errorCode));
+            message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), code));
+        eventPublisher.publishEvent(new BidRejectedEvent(message.requestId(), message.auctionId(), message.bidderId(), code));
     }
 }

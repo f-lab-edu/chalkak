@@ -8,7 +8,6 @@ import com.chalkak.bid.entity.BidRequestResult;
 import com.chalkak.bid.entity.BidRequestStatus;
 import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.bid.repository.BidRequestResultRepository;
-import com.chalkak.common.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -39,9 +38,8 @@ class BidRequestServiceTest {
         BidMessage message = createMessage();
         bidRequestResultRepository.save(BidRequestResult.accepted(
             message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), 1L));
-        BusinessException rejectedByPrice = new BusinessException(AuctionErrorCode.BID_AMOUNT_TOO_LOW);
 
-        assertThatThrownBy(() -> bidRequestService.reject(message, rejectedByPrice))
+        assertThatThrownBy(() -> bidRequestService.reject(message, AuctionErrorCode.BID_AMOUNT_TOO_LOW))
             .isInstanceOf(DataIntegrityViolationException.class);
 
         BidRequestResult result = bidRequestResultRepository.findById(message.requestId()).orElseThrow();

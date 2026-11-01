@@ -26,7 +26,7 @@ public class BidMessageConsumer {
             bidRequestService.accept(bid);
         } catch (BusinessException e) {
             log.warn("BusinessException occurred: requestId={}, code={}, message={}", bid.requestId(), e.getErrorCode().getCode(), e.getMessage());
-            bidRequestService.reject(bid, e);
+            bidRequestService.reject(bid, e.getErrorCode());
         }
     }
 }
