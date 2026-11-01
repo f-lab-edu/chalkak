@@ -50,14 +50,12 @@ public class BidMessageConsumer {
         }
     }
 
-    // 일시적인 DB 문제만 재시도
     private boolean isRetryable(Exception e) {
         return e instanceof TransientDataAccessException
             || e instanceof CannotCreateTransactionException
             || e instanceof DataAccessResourceFailureException;
     }
 
-    // 결과는 이미 저장됐으므로 DLQ 전송 실패는 기록만 남기고 ack한다
     private void sendToDLQ(BidMessage bid) {
         try {
             bidMessageProducer.sendToDLQ(bid);

@@ -84,7 +84,6 @@ public class Auction extends BaseEntity {
         }
     }
 
-    // 큐 대기로 처리가 늦어져도 마감 전에 접수된 입찰은 받도록 접수 시각으로 판단한다
     public void validateAcceptingBids(LocalDateTime requestedAt) {
         if (!status.isAcceptingBids() || !extendedClosesAt.isAfter(requestedAt)) {
             throw new BusinessException(AuctionErrorCode.AUCTION_ALREADY_CLOSED);

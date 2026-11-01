@@ -78,7 +78,6 @@ class BidControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    // 입찰 접수는 테스트 트랜잭션 밖에서 커밋되므로 롤백되지 않는다
     @AfterTransaction
     void cleanUpOutbox() {
         outboxRepository.deleteAll();

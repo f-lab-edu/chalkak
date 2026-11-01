@@ -64,7 +64,6 @@ class BidRequestServiceTest {
         assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
     }
 
-    // 동시에 들어오면 둘 다 존재 조회를 통과할 수 있어, 마지막 방어선인 request_id 유니크 제약까지 확인한다
     @RepeatedTest(5)
     void 같은_멱등키로_동시에_요청하면_한_번만_저장하고_나머지는_처리_중_예외가_발생한다() throws InterruptedException {
         int requestCount = 10;
@@ -97,7 +96,6 @@ class BidRequestServiceTest {
         doneLatch.await(10, TimeUnit.SECONDS);
         executor.shutdown();
 
-        // 조회에서 걸린 요청은 같은 요청 ID를 받고, 조회를 같이 통과한 요청은 유니크 제약에서 막혀 처리 중 예외가 난다
         assertThat(exceptions).allSatisfy(e -> assertThat(e)
             .isInstanceOfSatisfying(BusinessException.class,
                 be -> assertThat(be.getErrorCode()).isEqualTo(BidErrorCode.BID_REQUEST_IN_PROGRESS)));

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-// Spring이 설정한 ObjectMapper를 그대로 써서 날짜 형식 등이 앱 전체와 같게 유지된다
 @Component
 @RequiredArgsConstructor
 public class JsonConverter {

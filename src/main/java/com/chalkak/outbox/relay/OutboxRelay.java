@@ -25,7 +25,6 @@ public class OutboxRelay {
   @Value("${scheduler.outbox-relay.batch-size}")
   private int batchSize;
 
-  // PENDING을 오래된 순으로 발행한다. 배치를 꽉 채워 읽었으면 남은 게 있을 수 있으니 비울 때까지 반복한다
   public void relay() {
     List<Outbox> batch;
     do {
