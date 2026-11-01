@@ -8,16 +8,21 @@ import com.chalkak.bid.controller.response.BidResultResponse;
 import com.chalkak.bid.entity.BidRequestResult;
 import com.chalkak.bid.event.BidAcceptedEvent;
 import com.chalkak.bid.event.BidRejectedEvent;
+import com.chalkak.bid.exception.BidErrorCode;
 import com.chalkak.bid.queue.BidMessage;
-import com.chalkak.bid.queue.BidMessageProducer;
 import com.chalkak.bid.repository.BidRequestResultRepository;
+import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.ErrorCode;
+import com.chalkak.common.util.JsonConverter;
+import com.chalkak.common.util.TimeUtils;
+import com.chalkak.outbox.entity.Outbox;
+import com.chalkak.outbox.repository.OutboxRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -28,13 +33,21 @@ public class BidRequestService {
     private final BidService bidService;
     private final AuctionService auctionService;
     private final BidRequestResultRepository bidRequestResultRepository;
-    private final BidMessageProducer producer;
+    private final OutboxRepository outboxRepository;
+    private final JsonConverter jsonConverter;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UUID request(Long auctionId, Long bidderId, UUID idempotencyKey, BidRequest bidRequest) {
         UUID requestId = generateRequestId(bidderId, idempotencyKey);
-        producer.send(new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount()));
+        if (outboxRepository.existsByRequestId(requestId)) {
+            return requestId;
+        }
+        BidMessage message = new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount(), TimeUtils.now());
+        try {
+            outboxRepository.save(Outbox.pending(requestId, auctionId, jsonConverter.toJson(message)));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(BidErrorCode.BID_REQUEST_IN_PROGRESS);
+        }
         return requestId;
     }
 
