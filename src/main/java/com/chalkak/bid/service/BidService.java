@@ -12,6 +12,7 @@ import com.chalkak.point.service.PointService;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ public class BidService {
     private final UserRepository userRepository;
 
     @Transactional
-    public BidResponse submit(Long auctionId, Long bidderId, BidRequest request) {
+    public BidResponse submit(Long auctionId, Long bidderId, LocalDateTime requestedAt, BidRequest request) {
         BigDecimal bidAmount = request.bidAmount();
 
         // 큐(MessageGroupId)가 경매별 순서를 보장해도 락은 유지한다.
@@ -38,7 +39,7 @@ public class BidService {
             CommonErrorCode.NOT_FOUND.formatted("경매")
         ));
 
-        auction.validateAcceptingBids();
+        auction.validateAcceptingBids(requestedAt);
         auction.validateNotOwner(bidderId);
 
         User bidder = userRepository.findById(bidderId).orElseThrow(() -> new BusinessException(
@@ -68,7 +69,7 @@ public class BidService {
 
         }
 
-        auction.updateExtendCloseAt();
+        auction.updateExtendCloseAt(requestedAt);
 
         Bid bidLog = Bid.submit(auction, bidder, bidAmount);
         Bid bid = bidRepository.save(bidLog);

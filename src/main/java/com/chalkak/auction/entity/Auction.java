@@ -84,8 +84,9 @@ public class Auction extends BaseEntity {
         }
     }
 
-    public void validateAcceptingBids() {
-        if (!status.isAcceptingBids() || !extendedClosesAt.isAfter(TimeUtils.now())) {
+    // 큐 대기로 처리가 늦어져도 마감 전에 접수된 입찰은 받도록 접수 시각으로 판단한다
+    public void validateAcceptingBids(LocalDateTime requestedAt) {
+        if (!status.isAcceptingBids() || !extendedClosesAt.isAfter(requestedAt)) {
             throw new BusinessException(AuctionErrorCode.AUCTION_ALREADY_CLOSED);
         }
     }
@@ -105,9 +106,8 @@ public class Auction extends BaseEntity {
         return currentPrice.compareTo(startPrice) > 0;
     }
 
-    public void updateExtendCloseAt() {
-        LocalDateTime now = TimeUtils.now();
-        if (now.isBefore(this.extendedClosesAt.minusMinutes(EXTEND_THRESHOLD_MINUTES))) {
+    public void updateExtendCloseAt(LocalDateTime requestedAt) {
+        if (requestedAt.isBefore(this.extendedClosesAt.minusMinutes(EXTEND_THRESHOLD_MINUTES))) {
             return;
         }
         LocalDateTime extended = this.extendedClosesAt.plusMinutes(EXTEND_MINUTES);

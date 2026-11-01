@@ -68,7 +68,7 @@ public class BidRequestService {
     }
 
     public void accept(BidMessage message) {
-        BidResponse bid = bidService.submit(message.auctionId(), message.bidderId(), new BidRequest(message.bidAmount()));
+        BidResponse bid = bidService.submit(message.auctionId(), message.bidderId(), message.requestedAt(), new BidRequest(message.bidAmount()));
         bidRequestResultRepository.save(BidRequestResult.accepted(
             message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), bid.id()));
         AuctionStatusResponse status = auctionService.getStatus(message.auctionId());
