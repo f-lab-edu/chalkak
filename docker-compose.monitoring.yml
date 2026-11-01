@@ -15,6 +15,8 @@ services:
       SPRING_CLOUD_AWS_SQS_LISTENER_MAXCONCURRENTMESSAGES: ${SQS_MAX_CONCURRENT_MESSAGES:-10}
       SPRING_CLOUD_AWS_SQS_LISTENER_MAXMESSAGESPERPOLL: ${SQS_MAX_MESSAGES_PER_POLL:-10}
       SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-10}
+      # localstack이 큐를 만들 때 쓰는 값과 같은 값을 읽는다 (docker-compose.yml 참고)
+      BID_QUEUE_MAX_RECEIVE_COUNT: ${BID_QUEUE_MAX_RECEIVE_COUNT:-3}
     volumes:
       - ./monitoring/opentelemetry-javaagent.jar:/otel/opentelemetry-javaagent.jar
     container_name: chalkak-application

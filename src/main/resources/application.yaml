@@ -20,6 +20,9 @@ management:
 sqs:
   queue:
     bid: bid-queue.fifo
+    bid-dlq: bid-dlq.fifo
+    # 큐 생성 시 쓰는 값과 같아야 한다 (.env BID_QUEUE_MAX_RECEIVE_COUNT, 의미는 .env.example 참고)
+    bid-max-receive-count: ${BID_QUEUE_MAX_RECEIVE_COUNT:3}
 
 sse:
   heartbeat-interval: 30000
