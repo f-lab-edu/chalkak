@@ -17,6 +17,9 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-10}
       # localstack이 큐를 만들 때 쓰는 값과 같은 값을 읽는다 (docker-compose.yml 참고)
       BID_QUEUE_MAX_RECEIVE_COUNT: ${BID_QUEUE_MAX_RECEIVE_COUNT:-3}
+      # 아웃박스 릴레이 설정, 값의 의미는 .env.example 참고
+      OUTBOX_RELAY_FIXED_DELAY: ${OUTBOX_RELAY_FIXED_DELAY:-100}
+      OUTBOX_RELAY_BATCH_SIZE: ${OUTBOX_RELAY_BATCH_SIZE:-100}
     volumes:
       - ./monitoring/opentelemetry-javaagent.jar:/otel/opentelemetry-javaagent.jar
     container_name: chalkak-application
