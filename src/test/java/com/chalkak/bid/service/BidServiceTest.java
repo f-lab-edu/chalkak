@@ -72,7 +72,7 @@ class BidServiceTest {
 
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
 
-        BidResponse response = bidService.submit(auction.getId(), bidder.getId(), new BidRequest(bidAmount));
+        BidResponse response = bidService.submit(auction.getId(), bidder.getId(), TimeUtils.now(), new BidRequest(bidAmount));
 
         assertThat(response.auctionId()).isEqualTo(auction.getId());
         assertThat(response.bidderId()).isEqualTo(bidder.getId());
@@ -91,13 +91,13 @@ class BidServiceTest {
         User firstBidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
         pointService.charge(firstBidder.getId(), BigDecimal.valueOf(50_000));
         BigDecimal firstBidAmount = BigDecimal.valueOf(2_000);
-        bidService.submit(auction.getId(), firstBidder.getId(), new BidRequest(firstBidAmount));
+        bidService.submit(auction.getId(), firstBidder.getId(), TimeUtils.now(), new BidRequest(firstBidAmount));
 
         User secondBidder = userRepository.save(UserFixture.create("bidder2@chalkak.com", "encoded-password", "010-2222-2222"));
         pointService.charge(secondBidder.getId(), BigDecimal.valueOf(50_000));
         BigDecimal secondBidAmount = BigDecimal.valueOf(3_000);
 
-        BidResponse response = bidService.submit(auction.getId(), secondBidder.getId(), new BidRequest(secondBidAmount));
+        BidResponse response = bidService.submit(auction.getId(), secondBidder.getId(), TimeUtils.now(), new BidRequest(secondBidAmount));
 
         assertThat(response.bidAmount()).isEqualByComparingTo(secondBidAmount);
         assertThat(auction.getCurrentPrice()).isEqualByComparingTo(secondBidAmount);
@@ -121,10 +121,10 @@ class BidServiceTest {
         pointService.charge(bidder.getId(), BigDecimal.valueOf(2_500));
 
         BigDecimal firstBidAmount = BigDecimal.valueOf(2_000);
-        bidService.submit(auction.getId(), bidder.getId(), new BidRequest(firstBidAmount));
+        bidService.submit(auction.getId(), bidder.getId(), TimeUtils.now(), new BidRequest(firstBidAmount));
 
         BigDecimal secondBidAmount = BigDecimal.valueOf(2_400);
-        BidResponse response = bidService.submit(auction.getId(), bidder.getId(), new BidRequest(secondBidAmount));
+        BidResponse response = bidService.submit(auction.getId(), bidder.getId(), TimeUtils.now(), new BidRequest(secondBidAmount));
 
         assertThat(response.bidAmount()).isEqualByComparingTo(secondBidAmount);
         assertThat(auction.getCurrentPrice()).isEqualByComparingTo(secondBidAmount);
@@ -142,8 +142,9 @@ class BidServiceTest {
         BigDecimal bidAmount = BigDecimal.valueOf(10_000);
         Long bidderId = bidder.getId();
         BidRequest request = new BidRequest(bidAmount);
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(-1L, bidderId, request))
+        assertThatThrownBy(() -> bidService.submit(-1L, bidderId, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("경매 정보가 존재하지 않습니다.");
@@ -164,10 +165,51 @@ class BidServiceTest {
         BidRequest request = new BidRequest(bidAmount);
 
         Thread.sleep(2_000);
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.AUCTION_ALREADY_CLOSED);
+    }
+
+    @Test
+    void 마감_전에_접수된_입찰은_마감_시각이_지난_뒤_처리돼도_반영된다() throws InterruptedException {
+        Auction auction = createAuction(TimeUtils.now().plusSeconds(1));
+
+        User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
+        pointService.charge(bidder.getId(), BigDecimal.valueOf(50_000));
+        LocalDateTime requestedAt = TimeUtils.now();
+
+        Thread.sleep(2_000);
+        bidService.submit(auction.getId(), bidder.getId(), requestedAt, new BidRequest(BigDecimal.valueOf(2_000)));
+
+        assertThat(auction.getCurrentPrice()).isEqualByComparingTo(BigDecimal.valueOf(2_000));
+    }
+
+    @Test
+    void 마감_5분_전_이내에_접수된_입찰이면_마감이_5분_연장된다() {
+        Auction auction = createAuction();
+        LocalDateTime closesAt = auction.getExtendedClosesAt();
+
+        User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
+        pointService.charge(bidder.getId(), BigDecimal.valueOf(50_000));
+
+        bidService.submit(auction.getId(), bidder.getId(), closesAt.minusMinutes(3), new BidRequest(BigDecimal.valueOf(2_000)));
+
+        assertThat(auction.getExtendedClosesAt()).isEqualTo(closesAt.plusMinutes(5));
+    }
+
+    @Test
+    void 마감_5분_전보다_일찍_접수된_입찰이면_마감이_연장되지_않는다() {
+        Auction auction = createAuction();
+        LocalDateTime closesAt = auction.getExtendedClosesAt();
+
+        User bidder = userRepository.save(UserFixture.create("bidder1@chalkak.com", "encoded-password", "010-1111-1111"));
+        pointService.charge(bidder.getId(), BigDecimal.valueOf(50_000));
+
+        bidService.submit(auction.getId(), bidder.getId(), closesAt.minusMinutes(10), new BidRequest(BigDecimal.valueOf(2_000)));
+
+        assertThat(auction.getExtendedClosesAt()).isEqualTo(closesAt);
     }
 
     @Test
@@ -178,8 +220,9 @@ class BidServiceTest {
         Long auctionId = auction.getId();
         Long ownerId = owner.getId();
         BidRequest request = new BidRequest(bidAmount);
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(auctionId, ownerId, request))
+        assertThatThrownBy(() -> bidService.submit(auctionId, ownerId, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.SELF_BID_NOT_ALLOWED);
     }
@@ -190,8 +233,9 @@ class BidServiceTest {
         BigDecimal bidAmount = BigDecimal.valueOf(2_000);
         Long auctionId = auction.getId();
         BidRequest request = new BidRequest(bidAmount);
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(auctionId, -1L, request))
+        assertThatThrownBy(() -> bidService.submit(auctionId, -1L, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND)
             .hasMessage("회원 정보가 존재하지 않습니다.");
@@ -206,8 +250,9 @@ class BidServiceTest {
         pointService.charge(bidderId, BigDecimal.valueOf(50_000));
         Long auctionId = auction.getId();
         BidRequest request = new BidRequest(BigDecimal.valueOf(1_000));
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.BID_AMOUNT_TOO_LOW);
     }
@@ -222,8 +267,9 @@ class BidServiceTest {
         pointService.charge(bidderId, BigDecimal.valueOf(1_999));
         Long auctionId = auction.getId();
         BidRequest request = new BidRequest(bidAmount);
+        LocalDateTime requestedAt = TimeUtils.now();
 
-        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, request))
+        assertThatThrownBy(() -> bidService.submit(auctionId, bidderId, requestedAt, request))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("errorCode", PointErrorCode.INSUFFICIENT_AVAILABLE_AMOUNT);
     }
