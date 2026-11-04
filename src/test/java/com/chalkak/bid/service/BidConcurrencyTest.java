@@ -107,7 +107,7 @@ class BidConcurrencyTest {
                 readyLatch.countDown();
                 try {
                     startLatch.await();
-                    bidService.submit(auction.getId(), bidderId, new BidRequest(bidAmount));
+                    bidService.submit(auction.getId(), bidderId, TimeUtils.now(), new BidRequest(bidAmount));
                 } catch (Exception ignored) {
                     // 더 높은 입찰이 먼저 반영된 뒤 낮은 입찰이 도착해 거절되는 건 정상 케이스라 무시한다.
                 } finally {
@@ -142,8 +142,8 @@ class BidConcurrencyTest {
         pointService.charge(u1.getId(), CHARGE_AMOUNT);
         pointService.charge(u2.getId(), CHARGE_AMOUNT);
 
-        bidService.submit(auctionA.getId(), u1.getId(), new BidRequest(BigDecimal.valueOf(1_500))); // U1이 A의 최고입찰자
-        bidService.submit(auctionB.getId(), u2.getId(), new BidRequest(BigDecimal.valueOf(1_500))); // U2가 B의 최고입찰자
+        bidService.submit(auctionA.getId(), u1.getId(), TimeUtils.now(), new BidRequest(BigDecimal.valueOf(1_500))); // U1이 A의 최고입찰자
+        bidService.submit(auctionB.getId(), u2.getId(), TimeUtils.now(), new BidRequest(BigDecimal.valueOf(1_500))); // U2가 B의 최고입찰자
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch readyLatch = new CountDownLatch(2);
@@ -155,7 +155,7 @@ class BidConcurrencyTest {
             readyLatch.countDown();
             try {
                 startLatch.await();
-                bidService.submit(auctionA.getId(), u2.getId(), new BidRequest(BigDecimal.valueOf(2_000))); // U2가 A에 재입찰
+                bidService.submit(auctionA.getId(), u2.getId(), TimeUtils.now(), new BidRequest(BigDecimal.valueOf(2_000))); // U2가 A에 재입찰
             } catch (Exception e) {
                 exceptions.add(e);
             } finally {
@@ -166,7 +166,7 @@ class BidConcurrencyTest {
             readyLatch.countDown();
             try {
                 startLatch.await();
-                bidService.submit(auctionB.getId(), u1.getId(), new BidRequest(BigDecimal.valueOf(2_000))); // U1이 B에 재입찰
+                bidService.submit(auctionB.getId(), u1.getId(), TimeUtils.now(), new BidRequest(BigDecimal.valueOf(2_000))); // U1이 B에 재입찰
             } catch (Exception e) {
                 exceptions.add(e);
             } finally {

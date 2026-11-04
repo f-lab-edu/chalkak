@@ -14,9 +14,20 @@ public class BidMessageProducer {
   @Value("${sqs.queue.bid}")
   private String bidQueue;
 
+  @Value("${sqs.queue.bid-dlq}")
+  private String bidDlq;
+
   public void send(BidMessage message) {
     sqsTemplate.send(to -> to
         .queue(bidQueue)
+        .payload(message)
+        .messageGroupId(message.auctionId().toString())
+        .messageDeduplicationId(message.requestId().toString()));
+  }
+
+  public void sendToDLQ(BidMessage message) {
+    sqsTemplate.send(to -> to
+        .queue(bidDlq)
         .payload(message)
         .messageGroupId(message.auctionId().toString())
         .messageDeduplicationId(message.requestId().toString()));

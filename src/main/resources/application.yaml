@@ -3,10 +3,18 @@ spring:
     name: chalkak
   profiles:
     active: local
+  task:
+    scheduling:
+      pool:
+        size: 3
 
 scheduler:
   auction-close:
     fixed-delay: 60000
+  outbox-relay:
+    enabled: true
+    fixed-delay: ${OUTBOX_RELAY_FIXED_DELAY:100}
+    batch-size: ${OUTBOX_RELAY_BATCH_SIZE:100}
 
 management:
   endpoints:
@@ -20,6 +28,8 @@ management:
 sqs:
   queue:
     bid: bid-queue.fifo
+    bid-dlq: bid-dlq.fifo
+    bid-max-receive-count: ${BID_QUEUE_MAX_RECEIVE_COUNT:3}
 
 sse:
   heartbeat-interval: 30000

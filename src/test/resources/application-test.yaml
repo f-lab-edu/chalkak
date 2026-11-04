@@ -30,3 +30,7 @@ spring:
 logging:
   level:
     com.chalkak: debug
+
+scheduler:
+  outbox-relay:
+    enabled: false
