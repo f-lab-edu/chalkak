@@ -98,6 +98,8 @@ class BidControllerTest {
         Outbox outbox = outboxRepository.findAll().get(0);
         assertThat(outbox.getRequestId()).isEqualTo(requestId);
         assertThat(outbox.getAuctionId()).isEqualTo(auction.getId());
+        assertThat(outbox.getBidderId()).isEqualTo(bidder.getId());
+        assertThat(outbox.getBidAmount()).isEqualByComparingTo("15000");
         assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PENDING);
         BidMessage message = objectMapper.readValue(outbox.getPayload(), BidMessage.class);
         assertThat(message.requestId()).isEqualTo(requestId);

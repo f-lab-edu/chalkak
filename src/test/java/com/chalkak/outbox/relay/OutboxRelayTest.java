@@ -1,6 +1,7 @@
 package com.chalkak.outbox.relay;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.willDoNothing;
@@ -9,8 +10,12 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.chalkak.bid.entity.BidRequestResult;
+import com.chalkak.bid.entity.BidRequestStatus;
+import com.chalkak.bid.exception.BidErrorCode;
 import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.bid.queue.BidMessageProducer;
+import com.chalkak.bid.repository.BidRequestResultRepository;
 import com.chalkak.common.util.TimeUtils;
 import com.chalkak.outbox.entity.Outbox;
 import com.chalkak.outbox.entity.OutboxStatus;
@@ -24,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -38,6 +44,9 @@ class OutboxRelayTest {
   private OutboxRepository outboxRepository;
 
   @Autowired
+  private BidRequestResultRepository bidRequestResultRepository;
+
+  @Autowired
   private ObjectMapper objectMapper;
 
   @MockitoBean
@@ -46,6 +55,7 @@ class OutboxRelayTest {
   @AfterEach
   void cleanUp() {
     outboxRepository.deleteAll();
+    bidRequestResultRepository.deleteAll();
   }
 
   @Test
@@ -89,21 +99,40 @@ class OutboxRelayTest {
   }
 
   @Test
-  void payload를_읽을_수_없으면_FAILED로_바꾸고_다음_행을_발행한다() throws JsonProcessingException {
-    Outbox broken = outboxRepository.save(Outbox.pending(UUID.randomUUID(), 1L, "not-json"));
+  void payload를_읽을_수_없으면_FAILED로_바꾸고_입찰_실패_결과를_저장한_뒤_다음_행을_발행한다() throws JsonProcessingException {
+    Outbox broken = outboxRepository.save(
+        Outbox.pending(UUID.randomUUID(), 1L, 7L, BigDecimal.valueOf(12_000), "not-json"));
     Outbox next = savePending();
     willDoNothing().given(bidMessageProducer).send(any());
 
     outboxRelay.relay();
 
     assertThat(statusOf(broken)).isEqualTo(OutboxStatus.FAILED);
+    BidRequestResult result = bidRequestResultRepository.findById(broken.getRequestId()).orElseThrow();
+    assertThat(result.getStatus()).isEqualTo(BidRequestStatus.REJECTED);
+    assertThat(result.getErrorCode()).isEqualTo(BidErrorCode.BID_NOT_PROCESSED.getCode());
+    assertThat(result.getBidderId()).isEqualTo(7L);
+    assertThat(result.getBidAmount()).isEqualByComparingTo("12000");
     assertThat(statusOf(next)).isEqualTo(OutboxStatus.PUBLISHED);
+  }
+
+  @Test
+  void 입찰_실패_결과_저장에_실패하면_FAILED_변경도_롤백되어_PENDING으로_남는다() {
+    UUID requestId = UUID.randomUUID();
+    Outbox broken = outboxRepository.save(Outbox.pending(requestId, 1L, 7L, BigDecimal.valueOf(12_000), "not-json"));
+    bidRequestResultRepository.save(BidRequestResult.accepted(requestId, 1L, 7L, BigDecimal.valueOf(12_000), 1L));
+
+    assertThatThrownBy(() -> outboxRelay.relay())
+        .isInstanceOf(DataIntegrityViolationException.class);
+
+    assertThat(statusOf(broken)).isEqualTo(OutboxStatus.PENDING);
   }
 
   private Outbox savePending() throws JsonProcessingException {
     UUID requestId = UUID.randomUUID();
     BidMessage message = new BidMessage(requestId, 1L, 1L, BigDecimal.valueOf(10_000), TimeUtils.now());
-    return outboxRepository.save(Outbox.pending(requestId, 1L, objectMapper.writeValueAsString(message)));
+    return outboxRepository.save(
+        Outbox.pending(requestId, 1L, 1L, BigDecimal.valueOf(10_000), objectMapper.writeValueAsString(message)));
   }
 
   private OutboxStatus statusOf(Outbox outbox) {
