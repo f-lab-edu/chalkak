@@ -44,7 +44,7 @@ public class BidRequestService {
         }
         BidMessage message = new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount(), TimeUtils.now());
         try {
-            outboxRepository.save(Outbox.pending(requestId, auctionId, jsonConverter.toJson(message)));
+            outboxRepository.save(Outbox.pending(requestId, auctionId, bidderId, bidRequest.bidAmount(), jsonConverter.toJson(message)));
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(BidErrorCode.BID_REQUEST_IN_PROGRESS);
         }
@@ -73,6 +73,13 @@ public class BidRequestService {
             message.requestId(), message.auctionId(), message.bidderId(), message.bidAmount(), bid.id()));
         AuctionStatusResponse status = auctionService.getStatus(message.auctionId());
         eventPublisher.publishEvent(new BidAcceptedEvent(message.requestId(), message.auctionId(), message.bidderId(), status));
+    }
+
+    public void rejectUnpublished(Outbox outbox) {
+        outbox.markFailed();
+        outboxRepository.save(outbox);
+        reject(new BidMessage(outbox.getRequestId(), outbox.getAuctionId(), outbox.getBidderId(),
+            outbox.getBidAmount(), outbox.getCreatedAt()), BidErrorCode.BID_NOT_PROCESSED);
     }
 
     public void reject(BidMessage message, ErrorCode errorCode) {

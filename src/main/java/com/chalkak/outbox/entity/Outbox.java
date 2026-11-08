@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -35,6 +36,12 @@ public class Outbox extends BaseEntity {
   @Column(nullable = false)
   Long auctionId;
 
+  @Column(nullable = false)
+  Long bidderId;
+
+  @Column(nullable = false)
+  BigDecimal bidAmount;
+
   @Column(nullable = false, columnDefinition = "TEXT")
   String payload;
 
@@ -44,15 +51,17 @@ public class Outbox extends BaseEntity {
 
   LocalDateTime publishedAt;
 
-  private Outbox(UUID requestId, Long auctionId, String payload) {
+  private Outbox(UUID requestId, Long auctionId, Long bidderId, BigDecimal bidAmount, String payload) {
     this.requestId = requestId;
     this.auctionId = auctionId;
+    this.bidderId = bidderId;
+    this.bidAmount = bidAmount;
     this.payload = payload;
     this.status = OutboxStatus.PENDING;
   }
 
-  public static Outbox pending(UUID requestId, Long auctionId, String payload) {
-    return new Outbox(requestId, auctionId, payload);
+  public static Outbox pending(UUID requestId, Long auctionId, Long bidderId, BigDecimal bidAmount, String payload) {
+    return new Outbox(requestId, auctionId, bidderId, bidAmount, payload);
   }
 
   public void markPublished() {

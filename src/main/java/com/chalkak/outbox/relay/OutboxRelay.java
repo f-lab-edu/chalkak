@@ -2,6 +2,7 @@ package com.chalkak.outbox.relay;
 
 import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.bid.queue.BidMessageProducer;
+import com.chalkak.bid.service.BidRequestService;
 import com.chalkak.common.util.JsonConverter;
 import com.chalkak.outbox.entity.Outbox;
 import com.chalkak.outbox.entity.OutboxStatus;
@@ -20,6 +21,7 @@ public class OutboxRelay {
 
   private final OutboxRepository outboxRepository;
   private final BidMessageProducer bidMessageProducer;
+  private final BidRequestService bidRequestService;
   private final JsonConverter jsonConverter;
 
   @Value("${scheduler.outbox-relay.batch-size}")
@@ -43,8 +45,7 @@ public class OutboxRelay {
       message = jsonConverter.fromJson(outbox.getPayload(), BidMessage.class);
     } catch (IllegalArgumentException e) {
       log.error("Outbox payload unreadable: id={}, requestId={}", outbox.getId(), outbox.getRequestId(), e);
-      outbox.markFailed();
-      outboxRepository.save(outbox);
+      bidRequestService.rejectUnpublished(outbox);
       return true;
     }
 
