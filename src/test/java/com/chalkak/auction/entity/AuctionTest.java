@@ -62,6 +62,28 @@ class AuctionTest {
     }
 
     @Test
+    void 마감_시각이_지난_진행중_경매는_마감_대상이다() {
+        Auction auction = AuctionFixture.create();
+
+        assertThat(auction.isExpired(auction.getExtendedClosesAt().plusSeconds(1))).isTrue();
+    }
+
+    @Test
+    void 마감_시각이_지나지_않았으면_마감_대상이_아니다() {
+        Auction auction = AuctionFixture.create();
+
+        assertThat(auction.isExpired(auction.getExtendedClosesAt())).isFalse();
+    }
+
+    @Test
+    void 이미_종료된_경매는_마감_대상이_아니다() {
+        Auction auction = AuctionFixture.create();
+        auction.close();
+
+        assertThat(auction.isExpired(auction.getExtendedClosesAt().plusSeconds(1))).isFalse();
+    }
+
+    @Test
     void 최대_마감_시각_전이면_입찰_요청을_받는다() {
         Auction auction = AuctionFixture.create();
         LocalDateTime requestedAt = auction.getClosesAt().plusMinutes(25).minusSeconds(1);

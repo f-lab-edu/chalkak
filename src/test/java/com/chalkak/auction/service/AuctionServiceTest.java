@@ -199,7 +199,7 @@ class AuctionServiceTest {
         Auction expired = auctionRepository.save(AuctionFixture.create(camera));
         ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
 
-        auctionService.closeExpiredAuctions();
+        auctionService.closeIfExpired(expired.getId());
 
         assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
             .isEqualTo(AuctionStatus.FAILED);
@@ -213,7 +213,7 @@ class AuctionServiceTest {
         expired.updateCurrentPrice(AuctionFixture.DEFAULT_START_PRICE.add(BigDecimal.valueOf(1_000)));
         ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
 
-        auctionService.closeExpiredAuctions();
+        auctionService.closeIfExpired(expired.getId());
 
         assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
             .isEqualTo(AuctionStatus.SUCCESSFUL);
@@ -225,9 +225,25 @@ class AuctionServiceTest {
         Camera camera = cameraRepository.save(CameraFixture.create(owner));
         Auction notExpired = auctionRepository.save(AuctionFixture.create(camera));
 
-        auctionService.closeExpiredAuctions();
+        auctionService.closeIfExpired(notExpired.getId());
 
         assertThat(auctionRepository.findById(notExpired.getId()).orElseThrow().getStatus())
             .isEqualTo(AuctionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void 마감_대상_조회는_마감_시각이_지난_진행중_경매만_반환한다() {
+        User owner = userRepository.save(UserFixture.create());
+        Camera camera = cameraRepository.save(CameraFixture.create(owner));
+        Auction expired = auctionRepository.save(AuctionFixture.create(camera));
+        ReflectionTestUtils.setField(expired, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+        Auction closed = auctionRepository.save(AuctionFixture.create(camera));
+        ReflectionTestUtils.setField(closed, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+        closed.close();
+        auctionRepository.save(AuctionFixture.create(camera));
+
+        List<Long> expiredIds = auctionService.findExpiredAuctionIds();
+
+        assertThat(expiredIds).containsExactly(expired.getId());
     }
 }
