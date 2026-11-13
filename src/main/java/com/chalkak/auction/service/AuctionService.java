@@ -114,10 +114,18 @@ public class AuctionService {
         return PageResponse.of(summaries);
     }
 
+    public List<Long> findExpiredAuctionIds() {
+        return auctionRepository.findExpiredIds(AuctionStatus.IN_PROGRESS, TimeUtils.now());
+    }
+
     @Transactional
-    public void closeExpiredAuctions() {
-        auctionRepository.findAllByStatusAndExtendedClosesAtBefore(AuctionStatus.IN_PROGRESS, TimeUtils.now())
-            .forEach(Auction::close);
+    public void closeIfExpired(Long auctionId) {
+        Auction auction = auctionRepository.findByIdWithLock(auctionId)
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND, CommonErrorCode.NOT_FOUND.formatted("경매")));
+        if (!auction.isExpired(TimeUtils.now())) {
+            return;
+        }
+        auction.close();
     }
 
     private Auction getAuction(Long auctionId) {

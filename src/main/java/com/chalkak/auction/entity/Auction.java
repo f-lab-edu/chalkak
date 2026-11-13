@@ -103,6 +103,10 @@ public class Auction extends BaseEntity {
         this.currentPrice = bidAmount;
     }
 
+    public boolean isExpired(LocalDateTime now) {
+        return status.isAcceptingBids() && extendedClosesAt.isBefore(now);
+    }
+
     public void close() {
         this.status = hasBid() ? AuctionStatus.SUCCESSFUL : AuctionStatus.FAILED;
     }
