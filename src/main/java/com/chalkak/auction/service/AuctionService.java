@@ -24,6 +24,7 @@ import com.chalkak.common.util.TimeUtils;
 import com.chalkak.file.service.FileStorage;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,10 @@ public class AuctionService {
 
     public AuctionStatusResponse getStatus(Long auctionId) {
         return AuctionStatusResponse.from(getAuction(auctionId));
+    }
+
+    public void validateBidRequestable(Long auctionId, LocalDateTime requestedAt) {
+        getAuction(auctionId).validateBeforeMaxClosesAt(requestedAt);
     }
 
     public PageResponse<AuctionSummaryResponse> getAuctionsBySearchCondition(

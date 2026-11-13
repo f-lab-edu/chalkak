@@ -18,6 +18,7 @@ import com.chalkak.common.util.TimeUtils;
 import com.chalkak.outbox.entity.Outbox;
 import com.chalkak.outbox.repository.OutboxRepository;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,7 +43,9 @@ public class BidRequestService {
         if (outboxRepository.existsByRequestId(requestId)) {
             return requestId;
         }
-        BidMessage message = new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount(), TimeUtils.now());
+        LocalDateTime requestedAt = TimeUtils.now();
+        auctionService.validateBidRequestable(auctionId, requestedAt);
+        BidMessage message = new BidMessage(requestId, auctionId, bidderId, bidRequest.bidAmount(), requestedAt);
         try {
             outboxRepository.save(Outbox.pending(requestId, auctionId, bidderId, bidRequest.bidAmount(), jsonConverter.toJson(message)));
         } catch (DataIntegrityViolationException e) {
