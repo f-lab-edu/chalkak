@@ -60,4 +60,33 @@ class AuctionTest {
 
         assertThat(auction.getStatus()).isEqualTo(AuctionStatus.SUCCESSFUL);
     }
+
+    @Test
+    void 최대_마감_시각_전이면_입찰_요청을_받는다() {
+        Auction auction = AuctionFixture.create();
+        LocalDateTime requestedAt = auction.getClosesAt().plusMinutes(25).minusSeconds(1);
+
+        auction.validateBeforeMaxClosesAt(requestedAt);
+    }
+
+    @Test
+    void 최대_마감_시각이_지나면_입찰_요청을_거절한다() {
+        Auction auction = AuctionFixture.create();
+        LocalDateTime requestedAt = auction.getClosesAt().plusMinutes(25);
+
+        assertThatThrownBy(() -> auction.validateBeforeMaxClosesAt(requestedAt))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.AUCTION_ALREADY_CLOSED);
+    }
+
+    @Test
+    void 종료된_경매면_최대_마감_시각_전이어도_입찰_요청을_거절한다() {
+        Auction auction = AuctionFixture.create();
+        auction.close();
+        LocalDateTime requestedAt = auction.getClosesAt().minusMinutes(1);
+
+        assertThatThrownBy(() -> auction.validateBeforeMaxClosesAt(requestedAt))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("errorCode", AuctionErrorCode.AUCTION_ALREADY_CLOSED);
+    }
 }
