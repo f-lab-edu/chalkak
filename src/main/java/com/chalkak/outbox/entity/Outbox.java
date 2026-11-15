@@ -20,7 +20,10 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "outbox", indexes = @Index(name = "idx_outbox_status_id", columnList = "status, id"))
+@Table(name = "outbox", indexes = {
+    @Index(name = "idx_outbox_status_id", columnList = "status, id"),
+    @Index(name = "idx_outbox_auction_id", columnList = "auction_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @FieldDefaults(level = AccessLevel.PRIVATE)
