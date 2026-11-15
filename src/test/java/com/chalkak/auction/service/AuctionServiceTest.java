@@ -19,16 +19,21 @@ import com.chalkak.auction.fixture.MultipartFileFixture;
 import com.chalkak.auction.repository.AuctionRepository;
 import com.chalkak.auction.repository.CameraImageRepository;
 import com.chalkak.auction.repository.CameraRepository;
+import com.chalkak.bid.entity.BidRequestResult;
+import com.chalkak.bid.repository.BidRequestResultRepository;
 import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.exception.CommonErrorCode;
 import com.chalkak.common.response.PageResponse;
 import com.chalkak.common.util.ImageUrls;
+import com.chalkak.outbox.entity.Outbox;
+import com.chalkak.outbox.repository.OutboxRepository;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.fixture.UserFixture;
 import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -57,6 +62,12 @@ class AuctionServiceTest {
 
     @Autowired
     private AuctionRepository auctionRepository;
+
+    @Autowired
+    private OutboxRepository outboxRepository;
+
+    @Autowired
+    private BidRequestResultRepository bidRequestResultRepository;
 
     @Test
     void 정상_등록하면_Camera_CameraImage_Auction이_모두_저장된다() {
@@ -245,5 +256,92 @@ class AuctionServiceTest {
         List<Long> expiredIds = auctionService.findExpiredAuctionIds();
 
         assertThat(expiredIds).containsExactly(expired.getId());
+    }
+
+    @Test
+    void 마감_시각_후_대기_시간_안이면_마감_대상이_아니다() {
+        Auction waiting = auctionRepository.save(AuctionFixture.create(createCamera()));
+        ReflectionTestUtils.setField(waiting, "extendedClosesAt", LocalDateTime.now().minusSeconds(1));
+
+        List<Long> expiredIds = auctionService.findExpiredAuctionIds();
+
+        assertThat(expiredIds).doesNotContain(waiting.getId());
+    }
+
+    @Test
+    void 마감_시각_후_대기_시간_안이면_마감하지_않는다() {
+        Auction waiting = auctionRepository.save(AuctionFixture.create(createCamera()));
+        ReflectionTestUtils.setField(waiting, "extendedClosesAt", LocalDateTime.now().minusSeconds(1));
+
+        auctionService.closeIfExpired(waiting.getId());
+
+        assertThat(auctionRepository.findById(waiting.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void 결과가_없는_입찰_요청이_있으면_마감하지_않는다() {
+        Auction expired = createExpiredAuction(createCamera());
+        saveRequest(expired.getId());
+
+        auctionService.closeIfExpired(expired.getId());
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void 모든_입찰_요청에_결과가_있으면_마감한다() {
+        Auction expired = createExpiredAuction(createCamera());
+        Outbox request = saveRequest(expired.getId());
+        bidRequestResultRepository.save(BidRequestResult.accepted(
+            request.getRequestId(), expired.getId(), 1L, BigDecimal.valueOf(15_000), 1L));
+
+        auctionService.closeIfExpired(expired.getId());
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.FAILED);
+    }
+
+    @Test
+    void 발행을_포기한_요청은_실패_결과가_있어_마감을_막지_않는다() {
+        Auction expired = createExpiredAuction(createCamera());
+        Outbox request = saveRequest(expired.getId());
+        request.markFailed();
+        bidRequestResultRepository.save(BidRequestResult.rejected(
+            request.getRequestId(), expired.getId(), 1L, BigDecimal.valueOf(15_000), "BID-002"));
+
+        auctionService.closeIfExpired(expired.getId());
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.FAILED);
+    }
+
+    @Test
+    void 다른_경매의_결과가_없는_요청은_마감을_막지_않는다() {
+        Camera camera = createCamera();
+        Auction expired = createExpiredAuction(camera);
+        Auction other = createExpiredAuction(camera);
+        saveRequest(other.getId());
+
+        auctionService.closeIfExpired(expired.getId());
+
+        assertThat(auctionRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isEqualTo(AuctionStatus.FAILED);
+    }
+
+    private Camera createCamera() {
+        User owner = userRepository.save(UserFixture.create());
+        return cameraRepository.save(CameraFixture.create(owner));
+    }
+
+    private Auction createExpiredAuction(Camera camera) {
+        Auction auction = auctionRepository.save(AuctionFixture.create(camera));
+        ReflectionTestUtils.setField(auction, "extendedClosesAt", LocalDateTime.now().minusHours(1));
+        return auction;
+    }
+
+    private Outbox saveRequest(Long auctionId) {
+        return outboxRepository.save(Outbox.pending(UUID.randomUUID(), auctionId, 1L, BigDecimal.valueOf(15_000), "{}"));
     }
 }
