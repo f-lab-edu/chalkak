@@ -11,6 +11,7 @@ spring:
 scheduler:
   auction-close:
     fixed-delay: 60000
+    wait-after-close: ${AUCTION_CLOSE_WAIT_AFTER_CLOSE:5s}
   outbox-relay:
     enabled: true
     fixed-delay: ${OUTBOX_RELAY_FIXED_DELAY:100}

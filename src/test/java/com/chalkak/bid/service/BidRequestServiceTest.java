@@ -3,7 +3,13 @@ package com.chalkak.bid.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.chalkak.auction.entity.Auction;
+import com.chalkak.auction.entity.Camera;
 import com.chalkak.auction.exception.AuctionErrorCode;
+import com.chalkak.auction.fixture.AuctionFixture;
+import com.chalkak.auction.fixture.CameraFixture;
+import com.chalkak.auction.repository.AuctionRepository;
+import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.bid.controller.request.BidRequest;
 import com.chalkak.bid.entity.BidRequestResult;
 import com.chalkak.bid.exception.BidErrorCode;
@@ -14,6 +20,9 @@ import com.chalkak.common.exception.BusinessException;
 import com.chalkak.common.util.TimeUtils;
 import com.chalkak.outbox.entity.Outbox;
 import com.chalkak.outbox.repository.OutboxRepository;
+import com.chalkak.user.entity.User;
+import com.chalkak.user.fixture.UserFixture;
+import com.chalkak.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
@@ -46,19 +55,32 @@ class BidRequestServiceTest {
     @Autowired
     private OutboxRepository outboxRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private CameraRepository cameraRepository;
+
+    @Autowired
+    private AuctionRepository auctionRepository;
+
     @AfterEach
     void cleanUp() {
         bidRequestResultRepository.deleteAll();
         outboxRepository.deleteAll();
+        auctionRepository.deleteAll();
+        cameraRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     @Test
     void 같은_멱등키로_다시_요청하면_같은_요청_ID를_반환하고_한_번만_저장한다() {
+        Long auctionId = createAuction().getId();
         UUID idempotencyKey = UUID.randomUUID();
         BidRequest bidRequest = new BidRequest(BigDecimal.valueOf(15_000));
 
-        UUID firstRequestId = bidRequestService.request(1L, 1L, idempotencyKey, bidRequest);
-        UUID retryRequestId = bidRequestService.request(1L, 1L, idempotencyKey, bidRequest);
+        UUID firstRequestId = bidRequestService.request(auctionId, 1L, idempotencyKey, bidRequest);
+        UUID retryRequestId = bidRequestService.request(auctionId, 1L, idempotencyKey, bidRequest);
 
         assertThat(retryRequestId).isEqualTo(firstRequestId);
         assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
@@ -67,6 +89,7 @@ class BidRequestServiceTest {
     @RepeatedTest(5)
     void 같은_멱등키로_동시에_요청하면_한_번만_저장하고_나머지는_처리_중_예외가_발생한다() throws InterruptedException {
         int requestCount = 10;
+        Long auctionId = createAuction().getId();
         UUID idempotencyKey = UUID.randomUUID();
         BidRequest bidRequest = new BidRequest(BigDecimal.valueOf(15_000));
         Set<UUID> requestIds = ConcurrentHashMap.newKeySet();
@@ -82,7 +105,7 @@ class BidRequestServiceTest {
                 readyLatch.countDown();
                 try {
                     startLatch.await();
-                    requestIds.add(bidRequestService.request(1L, 1L, idempotencyKey, bidRequest));
+                    requestIds.add(bidRequestService.request(auctionId, 1L, idempotencyKey, bidRequest));
                 } catch (Exception e) {
                     exceptions.add(e);
                 } finally {
@@ -131,6 +154,12 @@ class BidRequestServiceTest {
 
         assertThat(bidRequestResultRepository.count()).isEqualTo(1);
         assertThat(bidRequestResultRepository.findById(message.requestId()).orElseThrow().getBidId()).isEqualTo(1L);
+    }
+
+    private Auction createAuction() {
+        User owner = userRepository.save(UserFixture.create());
+        Camera camera = cameraRepository.save(CameraFixture.create(owner));
+        return auctionRepository.save(AuctionFixture.create(camera));
     }
 
     private BidMessage createMessage() {

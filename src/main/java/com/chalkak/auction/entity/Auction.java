@@ -90,11 +90,21 @@ public class Auction extends BaseEntity {
         }
     }
 
+    public void validateBeforeMaxClosesAt(LocalDateTime requestedAt) {
+        if (!status.isAcceptingBids() || !maxClosesAt().isAfter(requestedAt)) {
+            throw new BusinessException(AuctionErrorCode.AUCTION_ALREADY_CLOSED);
+        }
+    }
+
     public void updateCurrentPrice(BigDecimal bidAmount) {
         if (bidAmount.compareTo(this.currentPrice) <= 0) {
             throw new BusinessException(AuctionErrorCode.BID_AMOUNT_TOO_LOW);
         }
         this.currentPrice = bidAmount;
+    }
+
+    public boolean isExpired(LocalDateTime now) {
+        return status.isAcceptingBids() && extendedClosesAt.isBefore(now);
     }
 
     public void close() {
@@ -110,8 +120,12 @@ public class Auction extends BaseEntity {
             return;
         }
         LocalDateTime extended = this.extendedClosesAt.plusMinutes(EXTEND_MINUTES);
-        LocalDateTime maxClosesAt = this.closesAt.plusMinutes(MAX_EXTEND_MINUTES);
+        LocalDateTime maxClosesAt = maxClosesAt();
         this.extendedClosesAt = extended.isAfter(maxClosesAt) ? maxClosesAt : extended;
+    }
+
+    private LocalDateTime maxClosesAt() {
+        return this.closesAt.plusMinutes(MAX_EXTEND_MINUTES);
     }
 
     private static void validateStartPrice(BigDecimal startPrice) {

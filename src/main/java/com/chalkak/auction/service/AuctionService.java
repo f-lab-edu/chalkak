@@ -22,13 +22,17 @@ import com.chalkak.common.response.PageResponse;
 import com.chalkak.common.util.ImageUrls;
 import com.chalkak.common.util.TimeUtils;
 import com.chalkak.file.service.FileStorage;
+import com.chalkak.outbox.repository.OutboxRepository;
 import com.chalkak.user.entity.User;
 import com.chalkak.user.repository.UserRepository;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -46,7 +50,11 @@ public class AuctionService {
     private final CameraRepository cameraRepository;
     private final CameraImageRepository cameraImageRepository;
     private final AuctionRepository auctionRepository;
+    private final OutboxRepository outboxRepository;
     private final FileStorage fileStorage;
+
+    @Value("${scheduler.auction-close.wait-after-close}")
+    private Duration waitAfterClose;
 
     @Transactional
     public AuctionResponse register(Long ownerId, AuctionRequest request, List<MultipartFile> images) {
@@ -81,6 +89,10 @@ public class AuctionService {
         return AuctionStatusResponse.from(getAuction(auctionId));
     }
 
+    public void validateBidRequestable(Long auctionId, LocalDateTime requestedAt) {
+        getAuction(auctionId).validateBeforeMaxClosesAt(requestedAt);
+    }
+
     public PageResponse<AuctionSummaryResponse> getAuctionsBySearchCondition(
         CameraCategory category,
         CameraConditionGrade grade,
@@ -109,10 +121,26 @@ public class AuctionService {
         return PageResponse.of(summaries);
     }
 
+    public List<Long> findExpiredAuctionIds() {
+        return auctionRepository.findExpiredIds(AuctionStatus.IN_PROGRESS, closableBefore());
+    }
+
     @Transactional
-    public void closeExpiredAuctions() {
-        auctionRepository.findAllByStatusAndExtendedClosesAtBefore(AuctionStatus.IN_PROGRESS, TimeUtils.now())
-            .forEach(Auction::close);
+    public void closeIfExpired(Long auctionId) {
+        Auction auction = auctionRepository.findByIdWithLock(auctionId)
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND, CommonErrorCode.NOT_FOUND.formatted("경매")));
+        if (!auction.isExpired(closableBefore())) {
+            return;
+        }
+        if (outboxRepository.existsNotProcessedBidRequest(auctionId)) {
+            return;
+        }
+        auction.close();
+    }
+
+    // 마감 직전에 접수돼 아직 커밋 중인 입찰 요청을 기다리도록 마감 시각 후 대기 시간만큼 늦게 마감한다
+    private LocalDateTime closableBefore() {
+        return TimeUtils.now().minus(waitAfterClose);
     }
 
     private Auction getAuction(Long auctionId) {

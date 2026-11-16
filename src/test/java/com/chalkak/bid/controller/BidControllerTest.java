@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.chalkak.auction.entity.Auction;
 import com.chalkak.auction.entity.Camera;
+import com.chalkak.auction.exception.AuctionErrorCode;
 import com.chalkak.auction.fixture.AuctionFixture;
 import com.chalkak.auction.fixture.CameraFixture;
 import com.chalkak.auction.repository.AuctionRepository;
@@ -38,6 +39,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -107,6 +109,42 @@ class BidControllerTest {
         assertThat(message.bidderId()).isEqualTo(bidder.getId());
         assertThat(message.bidAmount()).isEqualByComparingTo("15000");
         assertThat(message.requestedAt()).isNotNull();
+    }
+
+    @Test
+    void 최대_마감_시각이_지난_경매면_400을_응답하고_아웃박스에_저장하지_않는다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        ReflectionTestUtils.setField(auction, "closesAt", TimeUtils.now().minusMinutes(26));
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value(AuctionErrorCode.AUCTION_ALREADY_CLOSED.getCode()));
+
+        assertThat(outboxRepository.count()).isZero();
+    }
+
+    @Test
+    void 존재하지_않는_경매면_404를_응답하고_아웃박스에_저장하지_않는다() throws Exception {
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", Long.MAX_VALUE)
+                .header(IDEMPOTENCY_KEY, UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(15_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isNotFound());
+
+        assertThat(outboxRepository.count()).isZero();
     }
 
     @Test

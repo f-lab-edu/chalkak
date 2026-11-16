@@ -18,5 +18,6 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, Auction
   @Query("select a from Auction a where a.id = :auctionId")
   Optional<Auction> findByIdWithLock(@Param("auctionId") Long id);
 
-  List<Auction> findAllByStatusAndExtendedClosesAtBefore(AuctionStatus status, LocalDateTime time);
+  @Query("select a.id from Auction a where a.status = :status and a.extendedClosesAt < :now")
+  List<Long> findExpiredIds(@Param("status") AuctionStatus status, @Param("now") LocalDateTime now);
 }
