@@ -15,6 +15,7 @@ import com.chalkak.auction.repository.AuctionRepository;
 import com.chalkak.auction.repository.CameraRepository;
 import com.chalkak.auth.controller.request.AuthRequest;
 import com.chalkak.bid.controller.request.BidRequest;
+import com.chalkak.bid.exception.BidErrorCode;
 import com.chalkak.bid.queue.BidMessage;
 import com.chalkak.common.util.TimeUtils;
 import com.chalkak.outbox.entity.Outbox;
@@ -208,6 +209,27 @@ class BidControllerTest {
     }
 
     @Test
+    void 같은_멱등키로_다른_입찰가를_보내면_422를_응답하고_처음_요청만_저장한다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+        UUID idempotencyKey = UUID.randomUUID();
+        UUID firstRequestId = bid(session, auction.getId(), idempotencyKey);
+
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/bids", auction.getId())
+                .header(IDEMPOTENCY_KEY, idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new BidRequest(BigDecimal.valueOf(20_000))))
+                .session(session)
+                .with(csrf()))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value(BidErrorCode.IDEMPOTENCY_KEY_REUSED.getCode()));
+
+        assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
+    }
+
+    @Test
     void 다른_사용자가_같은_멱등키를_보내면_요청_ID가_다르다() throws Exception {
         User owner = registerUser(OWNER_EMAIL);
         Auction auction = createAuction(owner);
@@ -219,6 +241,21 @@ class BidControllerTest {
         UUID otherBidderRequestId = bid(login(OTHER_BIDDER_EMAIL), auction.getId(), idempotencyKey);
 
         assertThat(otherBidderRequestId).isNotEqualTo(bidderRequestId);
+    }
+
+    @Test
+    void 같은_사용자가_같은_멱등키를_다른_경매에_보내면_요청_ID가_다르다() throws Exception {
+        User owner = registerUser(OWNER_EMAIL);
+        Auction auction = createAuction(owner);
+        Auction otherAuction = createAuction(owner);
+        registerUser(BIDDER_EMAIL);
+        MockHttpSession session = login(BIDDER_EMAIL);
+        UUID idempotencyKey = UUID.randomUUID();
+
+        UUID requestId = bid(session, auction.getId(), idempotencyKey);
+        UUID otherAuctionRequestId = bid(session, otherAuction.getId(), idempotencyKey);
+
+        assertThat(otherAuctionRequestId).isNotEqualTo(requestId);
     }
 
     @Test

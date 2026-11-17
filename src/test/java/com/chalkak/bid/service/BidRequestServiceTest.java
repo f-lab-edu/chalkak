@@ -86,6 +86,19 @@ class BidRequestServiceTest {
         assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
     }
 
+    @Test
+    void 같은_멱등키로_다른_입찰가를_요청하면_예외가_발생하고_처음_요청만_저장된다() {
+        Long auctionId = createAuction().getId();
+        UUID idempotencyKey = UUID.randomUUID();
+        UUID firstRequestId = bidRequestService.request(auctionId, 1L, idempotencyKey, new BidRequest(BigDecimal.valueOf(15_000)));
+        BidRequest changedRequest = new BidRequest(BigDecimal.valueOf(20_000));
+
+        assertThatThrownBy(() -> bidRequestService.request(auctionId, 1L, idempotencyKey, changedRequest))
+            .isInstanceOfSatisfying(BusinessException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(BidErrorCode.IDEMPOTENCY_KEY_REUSED));
+        assertThat(outboxRepository.findAll()).extracting(Outbox::getRequestId).containsExactly(firstRequestId);
+    }
+
     @RepeatedTest(5)
     void 같은_멱등키로_동시에_요청하면_한_번만_저장하고_나머지는_처리_중_예외가_발생한다() throws InterruptedException {
         int requestCount = 10;
