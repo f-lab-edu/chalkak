@@ -12,7 +12,9 @@ public enum BidErrorCode implements ErrorCode {
     // 큐에서 입찰을 처리하지 못해 DLQ로 보낸 경우 (재시도 불가 예외 또는 재시도 횟수 소진)
     BID_NOT_PROCESSED(HttpStatus.SERVICE_UNAVAILABLE, "BID-002", "입찰이 반영되지 않았습니다. 다시 시도해 주세요."),
     // 같은 멱등키 요청이 동시에 들어와 먼저 들어온 요청만 접수된 경우
-    BID_REQUEST_IN_PROGRESS(HttpStatus.CONFLICT, "BID-003", "같은 입찰 요청이 처리 중입니다.");
+    BID_REQUEST_IN_PROGRESS(HttpStatus.CONFLICT, "BID-003", "같은 입찰 요청이 처리 중입니다."),
+    // 같은 멱등키로 본문이 다른 입찰 요청을 보낸 경우
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.UNPROCESSABLE_ENTITY, "BID-004", "같은 멱등키로 다른 입찰 요청을 보낼 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

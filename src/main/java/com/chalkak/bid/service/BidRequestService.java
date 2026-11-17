@@ -19,6 +19,7 @@ import com.chalkak.outbox.entity.Outbox;
 import com.chalkak.outbox.repository.OutboxRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,8 +40,12 @@ public class BidRequestService {
     private final ApplicationEventPublisher eventPublisher;
 
     public UUID request(Long auctionId, Long bidderId, UUID idempotencyKey, BidRequest bidRequest) {
-        UUID requestId = generateRequestId(bidderId, idempotencyKey);
-        if (outboxRepository.existsByRequestId(requestId)) {
+        UUID requestId = generateRequestId(auctionId, bidderId, idempotencyKey);
+        Optional<Outbox> existing = outboxRepository.findByRequestId(requestId);
+        if (existing.isPresent()) {
+            if (existing.get().getBidAmount().compareTo(bidRequest.bidAmount()) != 0) {
+                throw new BusinessException(BidErrorCode.IDEMPOTENCY_KEY_REUSED);
+            }
             return requestId;
         }
         LocalDateTime requestedAt = TimeUtils.now();
@@ -54,8 +59,8 @@ public class BidRequestService {
         return requestId;
     }
 
-    private UUID generateRequestId(Long bidderId, UUID idempotencyKey) {
-        return UUID.nameUUIDFromBytes((bidderId + ":" + idempotencyKey).getBytes(StandardCharsets.UTF_8));
+    private UUID generateRequestId(Long auctionId, Long bidderId, UUID idempotencyKey) {
+        return UUID.nameUUIDFromBytes((auctionId + ":" + bidderId + ":" + idempotencyKey).getBytes(StandardCharsets.UTF_8));
     }
 
     @Transactional(readOnly = true)
